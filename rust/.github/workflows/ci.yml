@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install CLI utilities
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-outdated,cargo-audit,cargo-edit
+
+      - uses: tombi-toml/setup-tombi@v1
+
+      - name: Cargo upgrade check
+        run: cargo upgrade --locked
+
+      - name: Cargo update check
+        run: cargo update --locked
+
+      - name: Audit for vulnerabilities
+        run: cargo audit --deny warnings
+
+      - name: Tombi format check
+        run: tombi format --check
+
+      - name: Rustfmt check
+        run: cargo fmt --all -- --check
+
+      - name: Tombi lint
+        run: tombi lint .
+
+      - name: Clippy lint
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test suite
+        run: cargo test --workspace --all-targets --all-features
+
+      - name: Ensure working tree clean
+        run: |
+          # 変更があるか確認 (git status --porcelain が空でなければ変更あり)
+          if [ -n "$(git status --porcelain)" ]; then
+            # ログに何が変わったか出力する
+            git status --porcelain
+            # CIを失敗させる
+            exit 1
+          fi
