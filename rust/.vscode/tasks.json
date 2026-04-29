@@ -1,0 +1,48 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "test",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": {
+				"kind": "build"
+			},
+			"label": "rust: cargo test"
+		},
+		{
+			"type": "cargo",
+			"command": "install",
+			"args": [
+				"cross"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"label": "rust: cargo install cross"
+		},
+		{
+			"type": "shell",
+			"command": "cross build --target x86_64-pc-windows-gnu --release",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"label": "rust: cross build x86_64-pc-windows-gnu --release"
+		},
+		{
+			"label": "rust: test + install cross + cross build",
+			"dependsOn": [
+				"rust: cargo test",
+				"rust: cargo install cross",
+				"rust: cross build x86_64-pc-windows-gnu --release"
+			],
+			"dependsOrder": "sequence",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}
