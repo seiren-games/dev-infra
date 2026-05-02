@@ -11,34 +11,47 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_EDIT_VERSION: 0.13.10
+
+permissions:
+  contents: read
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
+          toolchain: stable
           components: clippy, rustfmt
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.toolchain.outputs.cachekey }}-cargo-edit-${{ env.CARGO_EDIT_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install CLI utilities
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@a3324fb0eb94b8230ec968c3389c1b7929fc2f3b # v2.68.13
         with:
-          tool: cargo-outdated,cargo-audit,cargo-edit
+          tool: cargo-audit@0.22.1,tombi@0.9.23
+          fallback: none
 
-      - uses: tombi-toml/setup-tombi@v1
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --version "$CARGO_EDIT_VERSION" --locked
+        env:
+          CARGO_TARGET_DIR: target/cargo-install
 
       - name: Cargo upgrade check
         run: cargo upgrade --locked
