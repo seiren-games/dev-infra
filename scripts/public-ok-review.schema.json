@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["public_ok", "summary", "findings"],
+  "properties": {
+    "public_ok": {
+      "type": "boolean",
+      "description": "True only when the staged changes are safe to commit to a public repository."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short review result without reproducing sensitive values."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Potentially sensitive items found in staged changes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "evidence_type", "reason", "line_hint"],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "evidence_type": {
+            "type": "string",
+            "description": "Category such as secret, credential, personal_information, or confidential_marker."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this item should block the commit. Redact sensitive values."
+          },
+          "line_hint": {
+            "type": ["string", "null"],
+            "description": "Approximate line or hunk context without sensitive values, or null when not applicable."
+          }
+        }
+      }
+    }
+  }
+}

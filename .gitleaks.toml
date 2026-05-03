@@ -1,0 +1,52 @@
+title = "dev-infra secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Scanner configuration may contain detection examples."
+paths = [
+  '''^\.gitleaks\.toml$''',
+]
+
+[[rules]]
+id = "email-address"
+description = "Email address"
+regex = '''(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b'''
+keywords = ["@"]
+
+[[rules.allowlists]]
+description = "Documentation and placeholder domains."
+regexes = [
+  '''(?i)^[A-Z0-9._%+\-]+@(example\.(com|org|net)|invalid|localhost|test)$''',
+]
+
+[[rules]]
+id = "japan-phone-number"
+description = "Japanese phone number"
+regex = '''(?i)(?:\+81[-\s]?[789]0[-\s]?\d{4}[-\s]?\d{4}|0[789]0[-\s]?\d{4}[-\s]?\d{4}|0\d{1,4}[-\s]\d{1,4}[-\s]\d{3,4})'''
+
+[[rules]]
+id = "japan-my-number"
+description = "Japanese individual number with nearby label"
+regex = '''(?i)(?:my[-_\s]?number|mynumber|マイナンバー|個人番号)\D{0,32}\d{4}[-\s]?\d{4}[-\s]?\d{4}'''
+keywords = [
+  "my-number",
+  "mynumber",
+  "マイナンバー",
+  "個人番号",
+]
+
+[[rules]]
+id = "confidential-marker"
+description = "Confidentiality marker"
+regex = '''(?i)\b(confidential|internal only|restricted|proprietary)\b|社外秘|機密|秘匿'''
+keywords = [
+  "confidential",
+  "internal",
+  "restricted",
+  "proprietary",
+  "社外秘",
+  "機密",
+  "秘匿",
+]
