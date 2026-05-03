@@ -2,7 +2,7 @@
   description = "Development infrastructure shared files";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
   };
 
   outputs =
