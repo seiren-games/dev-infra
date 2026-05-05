@@ -1,6 +1,18 @@
 # dev-infra
 Development shared files
 
+## Rust CI tools
+
+Rust CI helper tools are packaged through Nix:
+
+```sh
+nix profile install github:seiren-games/dev-infra#rust-ci-tools
+```
+
+The package is built from `rust/nix/modules/ci-tools.nix`. Repositories that
+need to customize the tool list can import `inputs.dev-infra.lib.rustCiToolsModule`
+and override `devInfra.rust.ciTools.packages`.
+
 ## Secret scanning
 
 This repository provides Git hooks that block commits and pushes when gitleaks
