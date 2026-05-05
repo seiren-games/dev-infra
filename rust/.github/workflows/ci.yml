@@ -43,7 +43,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.toolchain.outputs.cachekey }}-cargo-edit-${{ env.CARGO_EDIT_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install CLI utilities
-        uses: taiki-e/install-action@a3324fb0eb94b8230ec968c3389c1b7929fc2f3b # v2.68.13
+        # Do not use tombi-toml/setup-tombi here: it downloads and executes install.sh.
+        # Keep using taiki-e/install-action with fallback disabled and pinned hashes.
+        uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2.75.23
         with:
           tool: cargo-audit@0.22.1,tombi@0.9.23
           fallback: none
