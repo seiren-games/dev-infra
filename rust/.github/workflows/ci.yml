@@ -54,7 +54,8 @@ jobs:
 
       - name: Install Nix CI tools
         run: |
-          nix profile install github:seiren-games/dev-infra#rust-ci-tools
+          DEV_INFRA_REV="$(nix eval --impure --raw --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes."dev-infra".locked.rev')"
+          nix profile install "github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-ci-tools"
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
       - name: Cargo upgrade check
