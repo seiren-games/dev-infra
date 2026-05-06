@@ -1,4 +1,5 @@
 ---
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
 name: rust-warning-resolution-policy
 description: Rustの警告対応ポリシー。Rustの警告（コンパイラ/Clippy/その他ツールチェイン）を解消しようとする際に参照する。
 ---

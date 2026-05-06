@@ -1,4 +1,5 @@
 ---
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
 name: "rust-autofix-maintainer"
 description: "*.tomlや*.rsを編集したとき、チェックに加えて自動修正も行い、コードベースをクリーンに保つメンテナ"
 ---
