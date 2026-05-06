@@ -16,8 +16,3 @@
 - フォールバックは問題を見えなくすることが多いため、原則として実装しない。必要な場合のみ、必要性と影響範囲を明確にしたうえで採用する。
 - 設定値・ルール・型定義はSSOTを保ち、正本を1か所に集約する。
 - 同じ知識やロジックの重複実装は避ける（DRY原則）。ただし、無理な共通化で可読性や変更容易性を下げない。
-
-## Rust
-- 依存の追加では `cargo cooldown add <crate>` を実行した後、`cargo cooldown upgrade --locked` と `cargo cooldown update --locked` で追加後の `Cargo.toml` と `Cargo.lock` を検証する。
-- 依存の更新・管理では `cargo add` / `cargo update` / `cargo upgrade` を直接実行せず、`cargo cooldown update` / `cargo cooldown upgrade` のように `cargo-cooldown` 経由で実行する。
-- `cargo-cooldown` は Nix の `rust-ci-tools` から提供されるものを使う。このツール自体のサプライチェーン攻撃対策として、Nix で固定された revision のものを使う。

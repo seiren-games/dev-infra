@@ -1,3 +1,5 @@
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+
 {
   config,
   lib,
