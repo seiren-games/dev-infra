@@ -60,10 +60,10 @@ jobs:
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
       - name: Cargo upgrade check
-        run: cargo upgrade --locked
+        run: cargo cooldown upgrade --locked
 
       - name: Cargo update check
-        run: cargo update --locked
+        run: cargo cooldown update --locked
 
       - name: Audit for vulnerabilities
         run: cargo audit --deny warnings

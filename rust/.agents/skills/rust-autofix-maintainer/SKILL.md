@@ -10,11 +10,11 @@ description: "*.tomlや*.rsを編集したとき、チェックに加えて自�
 ## 依存関係の健全性
 1. アップグレードする
 ```sh
-cargo upgrade
+cargo cooldown upgrade
 ```
 2. lockファイルの更新（`cargo generate-lockfile`で再生成もできる）
 ```sh
-cargo update
+cargo cooldown update
 ```
 
 ## セキュリティチェック
