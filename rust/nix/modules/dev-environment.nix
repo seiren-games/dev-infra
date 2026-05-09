@@ -8,17 +8,18 @@
 }:
 
 let
-  cfg = config.devInfra.rust.ciTools;
+  cfg = config.devInfra.rust.devEnvironment;
 in
 {
-  options.devInfra.rust.ciTools = {
+  options.devInfra.rust.devEnvironment = {
     packages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       default = with pkgs; [
         cargo-edit
+        cargo-cross
       ];
       description = ''
-        Tool packages required by the shared Rust CI workflow.
+        Tool packages required by the shared Rust development environment.
       '';
     };
 
@@ -26,13 +27,13 @@ in
       type = lib.types.package;
       readOnly = true;
       description = ''
-        Combined package exposing the shared Rust CI tools on PATH.
+        Combined package exposing the shared Rust development tools on PATH.
       '';
     };
   };
 
-  config.devInfra.rust.ciTools.package = pkgs.buildEnv {
-    name = "dev-infra-rust-ci-tools";
+  config.devInfra.rust.devEnvironment.package = pkgs.buildEnv {
+    name = "dev-infra-rust-dev-environment";
     paths = cfg.packages;
   };
 }

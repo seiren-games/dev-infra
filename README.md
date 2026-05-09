@@ -1,17 +1,18 @@
 # dev-infra
 Development shared files
 
-## Rust CI tools
+## Rust Development Environment
 
-Rust CI helper tools are packaged through Nix:
+Rust development tools are packaged through Nix:
 
 ```sh
-nix profile install github:seiren-games/dev-infra#rust-ci-tools
+nix profile install github:seiren-games/dev-infra#rust-dev-environment
 ```
 
-The package is built from `rust/nix/modules/ci-tools.nix`. Repositories that
-need to customize the tool list can import `inputs.dev-infra.lib.rustCiToolsModule`
-and override `devInfra.rust.ciTools.packages`.
+The package is built from `rust/nix/modules/dev-environment.nix`. Repositories
+that need to customize the tool list can import
+`inputs.dev-infra.lib.rustDevEnvironmentModule` and override
+`devInfra.rust.devEnvironment.packages`.
 
 ## Secret scanning
 
