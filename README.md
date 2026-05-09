@@ -13,16 +13,6 @@ The package is built from `rust/nix/modules/ci-tools.nix`. Repositories that
 need to customize the tool list can import `inputs.dev-infra.lib.rustCiToolsModule`
 and override `devInfra.rust.ciTools.packages`.
 
-Dependency add/update/upgrade commands should run through `cargo cooldown`, for
-example `cargo cooldown update` or `cargo cooldown upgrade`. Dependency
-additions are complete only after validating the resulting lockfile with
-`cargo cooldown upgrade --locked` and `cargo cooldown update --locked`. The
-shared `rust/cooldown.toml` should be synced to each consuming repository root.
-It uses a 7-day strict cooldown window and ignores committed lockfiles as a
-baseline, so CI validates fresh lockfile entries instead of protecting them.
-`cargo-cooldown` is built by Nix from a pinned `dertin/cargo-cooldown`
-revision.
-
 ## Secret scanning
 
 This repository provides Git hooks that block commits and pushes when gitleaks
