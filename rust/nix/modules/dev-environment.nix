@@ -250,21 +250,24 @@ let
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
-            "$command" \
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             "''${command_prefix_args[@]}" \
+            cooldown \
+            "$command" \
             "''${suffix[@]}"
           ;;
         ${cargoCooldownPostCheckCommandPattern})
-          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
-            "$command" \
+          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             "''${command_prefix_args[@]}" \
+            cooldown \
+            "$command" \
             "''${suffix[@]}" || exit $?
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
+            "''${command_prefix_args[@]}" \
+            cooldown \
             metadata \
             --locked \
             --format-version=1 \
-            "''${command_prefix_args[@]}" \
             "''${cooldown_metadata_args[@]}" > /dev/null
           ;;
       esac

@@ -64,12 +64,15 @@
             cat > "$fake_cargo/cargo" <<'EOF'
             #!${pkgs.runtimeShell}
             set -e
-            if [ "''${1:-}" = cooldown ]; then
-              [ "$COOLDOWN_MINUTES" = 10080 ]
-              [ "$COOLDOWN_ENFORCEMENT" = strict ]
-              [ "$COOLDOWN_LOCKFILE_BASELINE" = ignore ]
-              [ "$(command -v cargo-cooldown)" != "$FAKE_CARGO_DIR/cargo-cooldown" ]
-            fi
+            for arg in "$@"; do
+              if [ "$arg" = cooldown ]; then
+                [ "$COOLDOWN_MINUTES" = 10080 ]
+                [ "$COOLDOWN_ENFORCEMENT" = strict ]
+                [ "$COOLDOWN_LOCKFILE_BASELINE" = ignore ]
+                [ "$(command -v cargo-cooldown)" != "$FAKE_CARGO_DIR/cargo-cooldown" ]
+                break
+              fi
+            done
             printf '%s\n' "$*" >> "$CARGO_CALL_LOG"
             EOF
             chmod +x "$fake_cargo/cargo"
@@ -115,9 +118,14 @@
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
             assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
             assert_calls update "cooldown update"
-            assert_cargo_invocation "cooldown update --offline" --offline update
+            assert_cargo_invocation "--offline cooldown update" --offline update
             assert_cargo_invocation \
-              $'cooldown add --config net.offline=true serde\ncooldown metadata --locked --format-version=1 --config net.offline=true --all-features' \
+              $'--offline cooldown upgrade --locked\n--offline cooldown metadata --locked --format-version=1 --all-features' \
+              --offline \
+              upgrade \
+              --locked
+            assert_cargo_invocation \
+              $'--config net.offline=true cooldown add serde\n--config net.offline=true cooldown metadata --locked --format-version=1 --all-features' \
               --config net.offline=true \
               add \
               serde
