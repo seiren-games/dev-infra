@@ -140,16 +140,16 @@ let
           --)
             break
             ;;
-          --locked|--offline|--frozen)
+          --locked|--offline|--frozen|--workspace|--all|--all-features|--no-default-features)
             cooldown_check_args+=("''${suffix[suffix_index]}")
             ;;
-          --manifest-path)
+          --manifest-path|--package|-p|--exclude|--features|-F)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then
-              cooldown_check_args+=("--manifest-path" "''${suffix[suffix_index + 1]}")
+              cooldown_check_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
               suffix_index=$((suffix_index + 1))
             fi
             ;;
-          --manifest-path=*)
+          --manifest-path=*|--package=*|--exclude=*|--features=*|-p?*|-F?*)
             cooldown_check_args+=("''${suffix[suffix_index]}")
             ;;
         esac
