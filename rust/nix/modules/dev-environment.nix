@@ -223,6 +223,7 @@ let
 
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
+      cooldown_command_args=("$command" "''${command_prefix_args[@]}" "''${suffix[@]}")
       cooldown_metadata_args=(--all-features)
       cargo_lock_args=()
 
@@ -279,21 +280,17 @@ let
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
           exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
-            "''${command_prefix_args[@]}" \
             cooldown \
-            "$command" \
-            "''${suffix[@]}"
+            "''${cooldown_command_args[@]}"
           ;;
         ${cargoCooldownPostCheckCommandPattern})
           env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
-            "''${command_prefix_args[@]}" \
             cooldown \
-            "$command" \
-            "''${suffix[@]}" || exit $?
+            "''${cooldown_command_args[@]}" || exit $?
           exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
-            "''${command_prefix_args[@]}" \
             cooldown \
             metadata \
+            "''${command_prefix_args[@]}" \
             --locked \
             --format-version=1 \
             "''${cooldown_metadata_args[@]}" > /dev/null

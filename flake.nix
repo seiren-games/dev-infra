@@ -124,14 +124,18 @@
             assert_cargo_invocation "--offline add serde --dry-run" --offline add serde --dry-run
             assert_calls update "update --dry-run" --dry-run
             assert_calls update "cooldown update"
-            assert_cargo_invocation "--offline cooldown update" --offline update
+            assert_cargo_invocation "cooldown update --offline" --offline update
             assert_cargo_invocation \
-              $'--offline cooldown upgrade --locked\n--offline cooldown metadata --locked --format-version=1 --all-features' \
+              $'cooldown fetch --offline\ncooldown metadata --offline --locked --format-version=1 --all-features' \
+              --offline \
+              fetch
+            assert_cargo_invocation \
+              $'cooldown upgrade --offline --locked\ncooldown metadata --offline --locked --format-version=1 --all-features' \
               --offline \
               upgrade \
               --locked
             assert_cargo_invocation \
-              $'--config net.offline=true cooldown add serde\n--config net.offline=true cooldown metadata --locked --format-version=1 --all-features' \
+              $'cooldown add --config net.offline=true serde\ncooldown metadata --config net.offline=true --locked --format-version=1 --all-features' \
               --config net.offline=true \
               add \
               serde
