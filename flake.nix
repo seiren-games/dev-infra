@@ -117,6 +117,9 @@
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1 --all-features'
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
             assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
+            assert_calls add "add serde --dry-run" serde --dry-run
+            assert_cargo_invocation "--offline add serde --dry-run" --offline add serde --dry-run
+            assert_calls update "update --dry-run" --dry-run
             assert_calls update "cooldown update"
             assert_cargo_invocation "--offline cooldown update" --offline update
             assert_cargo_invocation \
@@ -137,6 +140,7 @@
             assert_cargo_invocation "build --locked --offline" --offline build
             assert_calls audit "audit --deny warnings" --deny warnings
             assert_calls build "build --help" --help
+            assert_calls build "build --locked --dry-run" --dry-run
             assert_calls run "run --locked -- --help" -- --help
             assert_calls test "test --locked -- --help" -- --help
 

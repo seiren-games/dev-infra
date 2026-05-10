@@ -119,6 +119,23 @@ let
         return 1
       }
 
+      has_cargo_dry_run_arg() {
+        local arg
+
+        for arg in "$@"; do
+          case "$arg" in
+            --)
+              return 1
+              ;;
+            --dry-run)
+              return 0
+              ;;
+          esac
+        done
+
+        return 1
+      }
+
       command_accepts_cargo_locking_arg() {
         case "$1" in
           ${cargoLockingCommandPattern})
@@ -247,6 +264,17 @@ let
             ;;
         esac
       done
+
+      case "$command" in
+        ${cargoCooldownUpdateCommandPattern}|${cargoCooldownPostCheckCommandPattern})
+          if has_cargo_dry_run_arg "''${suffix[@]}"; then
+            exec "$real_cargo" "''${cargo_invocation_args[@]}" \
+              "''${command_prefix_args[@]}" \
+              "$command" \
+              "''${suffix[@]}"
+          fi
+          ;;
+      esac
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
