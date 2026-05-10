@@ -18,9 +18,10 @@ nix profile install github:seiren-games/dev-infra#rust-dev-environment
 `cargo remove`、`cargo upgrade` など、manifest や lockfile を更新する
 コマンドは、固定された `cargo-cooldown` 経由で実行されます。
 `cargo generate-lockfile` や `cargo fetch` のように lockfile 解決を明示する
-コマンドも同じ経路を通ります。それ以外の Cargo コマンドはすべて、Cargo の
-グローバルな `--locked` flag 付きで実行されます。共有 cooldown policy file は
-`rust/cooldown.toml` です。
+コマンドも同じ経路を通ります。それ以外では、lockfile flag に対応する既知の
+Cargo コマンドだけが Cargo のグローバルな `--locked` flag 付きで実行されます。
+`cargo audit` などの外部サブコマンドには wrapper から `--locked` を追加しません。
+共有 cooldown policy file は `rust/cooldown.toml` です。
 
 ## シークレットスキャン
 

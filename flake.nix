@@ -63,6 +63,7 @@
 
             cat > "$fake_cargo/cargo" <<'EOF'
             #!${pkgs.runtimeShell}
+            set -e
             if [ "''${1:-}" = cooldown ]; then
               [ "$COOLDOWN_MINUTES" = 10080 ]
               [ "$COOLDOWN_ENFORCEMENT" = strict ]
@@ -125,6 +126,7 @@
             assert_calls build "build --locked"
             assert_calls clippy "clippy --locked"
             assert_cargo_invocation "build --locked --offline" --offline build
+            assert_calls audit "audit --deny warnings" --deny warnings
             assert_calls build "build --help" --help
             assert_calls run "run --locked -- --help" -- --help
             assert_calls test "test --locked -- --help" -- --help

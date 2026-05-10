@@ -23,8 +23,35 @@ let
     "fetch"
   ];
 
+  cargoLockingCommands = [
+    "b"
+    "bench"
+    "build"
+    "c"
+    "check"
+    "clippy"
+    "d"
+    "doc"
+    "fix"
+    "info"
+    "install"
+    "metadata"
+    "package"
+    "publish"
+    "r"
+    "report"
+    "run"
+    "rustc"
+    "rustdoc"
+    "t"
+    "test"
+    "tree"
+    "vendor"
+  ];
+
   cargoCooldownUpdateCommandPattern = lib.concatStringsSep "|" cargoCooldownUpdateCommands;
   cargoCooldownPostCheckCommandPattern = lib.concatStringsSep "|" cargoCooldownPostCheckCommands;
+  cargoLockingCommandPattern = lib.concatStringsSep "|" cargoLockingCommands;
   cargoCooldownPolicy = builtins.fromTOML (builtins.readFile ../../cooldown.toml);
 
   cargoCooldown = pkgs.rustPlatform.buildRustPackage rec {
@@ -91,6 +118,17 @@ let
         done
 
         return 1
+      }
+
+      command_accepts_cargo_locking_arg() {
+        case "$1" in
+          ${cargoLockingCommandPattern})
+            return 0
+            ;;
+          *)
+            return 1
+            ;;
+        esac
       }
 
       cooldown_policy_env=(
@@ -172,7 +210,9 @@ let
       cooldown_metadata_args=()
       cargo_lock_args=()
 
-      if ! has_cargo_locking_arg "''${command_prefix_args[@]}" && ! has_cargo_locking_arg "''${suffix[@]}"; then
+      if command_accepts_cargo_locking_arg "$command" \
+        && ! has_cargo_locking_arg "''${command_prefix_args[@]}" \
+        && ! has_cargo_locking_arg "''${suffix[@]}"; then
         cargo_lock_args=(--locked)
       fi
 
@@ -250,7 +290,8 @@ in
       readOnly = true;
       description = ''
         Cargo policy wrapper. It runs manifest or lockfile update commands
-        through cargo-cooldown and adds `--locked` to every other Cargo command.
+        through cargo-cooldown and adds `--locked` to known Cargo commands
+        that accept lockfile flags.
       '';
     };
 
