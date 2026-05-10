@@ -128,7 +128,7 @@ let
 
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
-      cooldown_check_args=()
+      cooldown_metadata_args=()
 
       for suffix_arg in "''${suffix[@]}"; do
         case "$suffix_arg" in
@@ -146,17 +146,17 @@ let
           --)
             break
             ;;
-          --locked|--offline|--frozen|--workspace|--all|--all-features|--no-default-features)
-            cooldown_check_args+=("''${suffix[suffix_index]}")
+          --offline|--frozen|--all-features|--no-default-features)
+            cooldown_metadata_args+=("''${suffix[suffix_index]}")
             ;;
-          --manifest-path|--package|-p|--exclude|--features|-F)
+          --manifest-path|--features|-F)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then
-              cooldown_check_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
+              cooldown_metadata_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
               suffix_index=$((suffix_index + 1))
             fi
             ;;
-          --manifest-path=*|--package=*|--exclude=*|--features=*|-p?*|-F?*)
-            cooldown_check_args+=("''${suffix[suffix_index]}")
+          --manifest-path=*|--features=*|-F?*)
+            cooldown_metadata_args+=("''${suffix[suffix_index]}")
             ;;
         esac
       done
@@ -167,9 +167,10 @@ let
           ;;
         ${cargoCooldownPostCheckCommandPattern})
           env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}" || exit $?
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "''${cooldown_check_args[@]}" metadata \
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown metadata \
             --locked \
-            --format-version=1 > /dev/null
+            --format-version=1 \
+            "''${cooldown_metadata_args[@]}" > /dev/null
           ;;
       esac
 
