@@ -124,6 +124,14 @@ let
       suffix=("''${args[@]:command_index + 1}")
       cooldown_check_args=()
 
+      for suffix_arg in "''${suffix[@]}"; do
+        case "$suffix_arg" in
+          -h|--help)
+            exec "$real_cargo" "$@"
+            ;;
+        esac
+      done
+
       for (( suffix_index = 0; suffix_index < ''${#suffix[@]}; suffix_index++ )); do
         case "''${suffix[suffix_index]}" in
           --manifest-path)

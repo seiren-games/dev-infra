@@ -86,7 +86,10 @@
               --manifest-path crates/app/Cargo.toml
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1'
             assert_calls update "cooldown update"
+            assert_calls update "update --help" --help
+            assert_calls add "add --help" --help
             assert_calls build "--locked build"
+            assert_calls build "build --help" --help
 
             touch "$out"
           '';
