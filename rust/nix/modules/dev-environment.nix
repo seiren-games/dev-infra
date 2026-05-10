@@ -248,18 +248,18 @@ let
           --)
             break
             ;;
-          --offline|--frozen|--no-default-features)
+          --offline|--frozen)
             cooldown_metadata_args+=("''${suffix[suffix_index]}")
             ;;
           --all-features)
             ;;
-          --manifest-path|--features|-F)
+          --manifest-path)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then
               cooldown_metadata_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
               suffix_index=$((suffix_index + 1))
             fi
             ;;
-          --manifest-path=*|--features=*|-F?*)
+          --manifest-path=*)
             cooldown_metadata_args+=("''${suffix[suffix_index]}")
             ;;
         esac
@@ -300,9 +300,10 @@ let
           ;;
       esac
 
-      exec "$real_cargo" "''${cargo_invocation_args[@]}" "$command" \
-        "''${cargo_lock_args[@]}" \
+      exec "$real_cargo" "''${cargo_invocation_args[@]}" \
         "''${command_prefix_args[@]}" \
+        "$command" \
+        "''${cargo_lock_args[@]}" \
         "''${suffix[@]}"
     '';
   };

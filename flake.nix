@@ -112,8 +112,11 @@
               $'cooldown add -p member serde\ncooldown metadata --locked --format-version=1 --all-features' \
               -p member serde
             assert_calls add \
-              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown metadata --locked --format-version=1 --all-features --features derive,alloc --no-default-features' \
+              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown metadata --locked --format-version=1 --all-features' \
               --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features
+            assert_calls add \
+              $'cooldown add serde --features derive\ncooldown metadata --locked --format-version=1 --all-features' \
+              serde --features derive
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1 --all-features'
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
             assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
@@ -137,8 +140,10 @@
             assert_calls build "build --locked"
             assert_calls clippy "clippy --locked"
             assert_calls info "info serde" serde
-            assert_cargo_invocation "build --locked --offline" --offline build
+            assert_cargo_invocation "--offline build --locked" --offline build
             assert_calls audit "audit --deny warnings" --deny warnings
+            assert_cargo_invocation "--offline audit" --offline audit
+            assert_cargo_invocation "--config net.offline=true deny" --config net.offline=true deny
             assert_calls build "build --help" --help
             assert_calls build "build --locked --dry-run" --dry-run
             assert_calls run "run --locked -- --help" -- --help
