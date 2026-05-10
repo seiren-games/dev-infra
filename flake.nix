@@ -48,6 +48,14 @@
         }
       );
 
+      checks = forAllSystems (
+        { pkgs }:
+        {
+          rust-dev-environment =
+            (evalRustDevEnvironment pkgs).config.devInfra.rust.devEnvironment.package;
+        }
+      );
+
       devShells = forAllSystems (
         { pkgs }:
         {
