@@ -80,14 +80,20 @@
             EOF
             chmod +x "$fake_cargo/cargo-cooldown"
 
+            assert_cargo_invocation() {
+              local expected="$1"
+              shift
+              : > "$CARGO_CALL_LOG"
+              PATH="${rustDevEnvironment}/bin:$fake_cargo:$PATH" cargo "$@"
+              diff -u <(printf '%s\n' "$expected") "$CARGO_CALL_LOG"
+            }
+
             assert_calls() {
               local command="$1"
               local expected="$2"
               shift 2
 
-              : > "$CARGO_CALL_LOG"
-              PATH="${rustDevEnvironment}/bin:$fake_cargo:$PATH" cargo "$command" "$@"
-              diff -u <(printf '%s\n' "$expected") "$CARGO_CALL_LOG"
+              assert_cargo_invocation "$expected" "$command" "$@"
             }
 
             export CARGO_CALL_LOG="$TMPDIR/cargo-calls"
@@ -108,12 +114,20 @@
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --offline' --offline
             assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --frozen' serde --frozen
             assert_calls update "cooldown update"
+            assert_cargo_invocation "cooldown update --offline" --offline update
+            assert_cargo_invocation \
+              $'cooldown add --config net.offline=true serde\ncooldown metadata --locked --format-version=1 --config net.offline=true' \
+              --config net.offline=true \
+              add \
+              serde
             assert_calls update "update --help" --help
             assert_calls add "add --help" --help
-            assert_calls build "--locked build"
+            assert_calls build "build --locked"
+            assert_calls clippy "clippy --locked"
+            assert_cargo_invocation "build --locked --offline" --offline build
             assert_calls build "build --help" --help
-            assert_calls run "--locked run -- --help" -- --help
-            assert_calls test "--locked test -- --help" -- --help
+            assert_calls run "run --locked -- --help" -- --help
+            assert_calls test "test --locked -- --help" -- --help
 
             touch "$out"
           '';

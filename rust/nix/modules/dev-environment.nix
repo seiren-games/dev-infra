@@ -75,6 +75,24 @@ let
       real_cargo="$(find_real_cargo)"
       export DEV_INFRA_REAL_CARGO="$real_cargo"
       export PATH="${realCargoShim}/bin:$PATH"
+
+      has_cargo_locking_arg() {
+        local arg
+
+        for arg in "$@"; do
+          case "$arg" in
+            --)
+              return 1
+              ;;
+            --locked|--frozen)
+              return 0
+              ;;
+          esac
+        done
+
+        return 1
+      }
+
       cooldown_policy_env=(
         "COOLDOWN_MINUTES=${toString cargoCooldownPolicy.cooldown_minutes}"
         "COOLDOWN_ENFORCEMENT=${cargoCooldownPolicy.enforcement}"
@@ -82,12 +100,13 @@ let
       )
 
       args=("$@")
-      prefix=()
+      cargo_invocation_args=()
+      command_prefix_args=()
       command_index=-1
       index=0
 
       if (( ''${#args[@]} > 0 )) && [[ "''${args[0]}" == +* ]]; then
-        prefix+=("''${args[0]}")
+        cargo_invocation_args+=("''${args[0]}")
         index=1
       fi
 
@@ -96,23 +115,45 @@ let
           -V|--version|--list|-h|--help)
             exec "$real_cargo" "$@"
             ;;
-          --explain|-C|--color|--config|-Z)
+          --explain)
             if (( index + 1 >= ''${#args[@]} )); then
               exec "$real_cargo" "$@"
             fi
-            prefix+=("''${args[index]}" "''${args[index + 1]}")
+            cargo_invocation_args+=("''${args[index]}" "''${args[index + 1]}")
             index=$((index + 2))
             ;;
-          --explain=*|-C*|--color=*|--config=*|-Z*)
-            prefix+=("''${args[index]}")
+          --explain=*)
+            cargo_invocation_args+=("''${args[index]}")
+            index=$((index + 1))
+            ;;
+          -C)
+            if (( index + 1 >= ''${#args[@]} )); then
+              exec "$real_cargo" "$@"
+            fi
+            cargo_invocation_args+=("''${args[index]}" "''${args[index + 1]}")
+            index=$((index + 2))
+            ;;
+          -C*)
+            cargo_invocation_args+=("''${args[index]}")
+            index=$((index + 1))
+            ;;
+          --color|--config|-Z)
+            if (( index + 1 >= ''${#args[@]} )); then
+              exec "$real_cargo" "$@"
+            fi
+            command_prefix_args+=("''${args[index]}" "''${args[index + 1]}")
+            index=$((index + 2))
+            ;;
+          --color=*|--config=*|-Z*)
+            command_prefix_args+=("''${args[index]}")
             index=$((index + 1))
             ;;
           -v|-vv|-vvv|--verbose|-q|--quiet|--locked|--offline|--frozen)
-            prefix+=("''${args[index]}")
+            command_prefix_args+=("''${args[index]}")
             index=$((index + 1))
             ;;
           -*)
-            prefix+=("''${args[index]}")
+            cargo_invocation_args+=("''${args[index]}")
             index=$((index + 1))
             ;;
           *)
@@ -129,6 +170,11 @@ let
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
       cooldown_metadata_args=()
+      cargo_lock_args=()
+
+      if ! has_cargo_locking_arg "''${command_prefix_args[@]}" && ! has_cargo_locking_arg "''${suffix[@]}"; then
+        cargo_lock_args=(--locked)
+      fi
 
       for suffix_arg in "''${suffix[@]}"; do
         case "$suffix_arg" in
@@ -163,18 +209,29 @@ let
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}"
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
+            "$command" \
+            "''${command_prefix_args[@]}" \
+            "''${suffix[@]}"
           ;;
         ${cargoCooldownPostCheckCommandPattern})
-          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}" || exit $?
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown metadata \
+          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
+            "$command" \
+            "''${command_prefix_args[@]}" \
+            "''${suffix[@]}" || exit $?
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" cooldown \
+            metadata \
             --locked \
             --format-version=1 \
+            "''${command_prefix_args[@]}" \
             "''${cooldown_metadata_args[@]}" > /dev/null
           ;;
       esac
 
-      exec "$real_cargo" "''${prefix[@]}" --locked "$command" "''${suffix[@]}"
+      exec "$real_cargo" "''${cargo_invocation_args[@]}" "$command" \
+        "''${cargo_lock_args[@]}" \
+        "''${command_prefix_args[@]}" \
+        "''${suffix[@]}"
     '';
   };
 
