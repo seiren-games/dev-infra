@@ -63,9 +63,22 @@
 
             cat > "$fake_cargo/cargo" <<'EOF'
             #!${pkgs.runtimeShell}
+            if [ "''${1:-}" = cooldown ]; then
+              [ "$COOLDOWN_MINUTES" = 10080 ]
+              [ "$COOLDOWN_ENFORCEMENT" = strict ]
+              [ "$COOLDOWN_LOCKFILE_BASELINE" = ignore ]
+              [ "$(command -v cargo-cooldown)" != "$FAKE_CARGO_DIR/cargo-cooldown" ]
+            fi
             printf '%s\n' "$*" >> "$CARGO_CALL_LOG"
             EOF
             chmod +x "$fake_cargo/cargo"
+
+            cat > "$fake_cargo/cargo-cooldown" <<'EOF'
+            #!${pkgs.runtimeShell}
+            printf 'unpinned cargo-cooldown must not be selected\n' >&2
+            exit 1
+            EOF
+            chmod +x "$fake_cargo/cargo-cooldown"
 
             assert_calls() {
               local command="$1"
@@ -78,6 +91,7 @@
             }
 
             export CARGO_CALL_LOG="$TMPDIR/cargo-calls"
+            export FAKE_CARGO_DIR="$fake_cargo"
 
             assert_calls add $'cooldown add serde\ncooldown metadata --locked --format-version=1' serde
             assert_calls add \

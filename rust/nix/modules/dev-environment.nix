@@ -25,6 +25,7 @@ let
 
   cargoCooldownUpdateCommandPattern = lib.concatStringsSep "|" cargoCooldownUpdateCommands;
   cargoCooldownPostCheckCommandPattern = lib.concatStringsSep "|" cargoCooldownPostCheckCommands;
+  cargoCooldownPolicy = builtins.fromTOML (builtins.readFile ../../cooldown.toml);
 
   cargoCooldown = pkgs.rustPlatform.buildRustPackage rec {
     pname = "cargo-cooldown";
@@ -72,8 +73,13 @@ let
       }
 
       real_cargo="$(find_real_cargo)"
-      real_cargo_dir="$(dirname "$real_cargo")"
-      export PATH="$real_cargo_dir:$PATH"
+      export DEV_INFRA_REAL_CARGO="$real_cargo"
+      export PATH="${realCargoShim}/bin:$PATH"
+      cooldown_policy_env=(
+        "COOLDOWN_MINUTES=${toString cargoCooldownPolicy.cooldown_minutes}"
+        "COOLDOWN_ENFORCEMENT=${cargoCooldownPolicy.enforcement}"
+        "COOLDOWN_LOCKFILE_BASELINE=${cargoCooldownPolicy.lockfile_baseline}"
+      )
 
       args=("$@")
       prefix=()
@@ -157,17 +163,24 @@ let
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
-          exec "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}"
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}"
           ;;
         ${cargoCooldownPostCheckCommandPattern})
-          "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}" || exit $?
-          exec "$real_cargo" "''${prefix[@]}" cooldown "''${cooldown_check_args[@]}" metadata \
+          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}" || exit $?
+          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${prefix[@]}" cooldown "''${cooldown_check_args[@]}" metadata \
             --locked \
             --format-version=1 > /dev/null
           ;;
       esac
 
       exec "$real_cargo" "''${prefix[@]}" --locked "$command" "''${suffix[@]}"
+    '';
+  };
+
+  realCargoShim = pkgs.writeShellApplication {
+    name = "cargo";
+    text = ''
+      exec "$DEV_INFRA_REAL_CARGO" "$@"
     '';
   };
 in
