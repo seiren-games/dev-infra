@@ -207,7 +207,7 @@ let
 
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
-      cooldown_metadata_args=()
+      cooldown_metadata_args=(--all-features)
       cargo_lock_args=()
 
       if command_accepts_cargo_locking_arg "$command" \
@@ -232,8 +232,10 @@ let
           --)
             break
             ;;
-          --offline|--frozen|--all-features|--no-default-features)
+          --offline|--frozen|--no-default-features)
             cooldown_metadata_args+=("''${suffix[suffix_index]}")
+            ;;
+          --all-features)
             ;;
           --manifest-path|--features|-F)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then

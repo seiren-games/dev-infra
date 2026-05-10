@@ -100,24 +100,24 @@
             export CARGO_CALL_LOG="$TMPDIR/cargo-calls"
             export FAKE_CARGO_DIR="$fake_cargo"
 
-            assert_calls add $'cooldown add serde\ncooldown metadata --locked --format-version=1' serde
+            assert_calls add $'cooldown add serde\ncooldown metadata --locked --format-version=1 --all-features' serde
             assert_calls add \
-              $'cooldown add serde --manifest-path crates/app/Cargo.toml\ncooldown metadata --locked --format-version=1 --manifest-path crates/app/Cargo.toml' \
+              $'cooldown add serde --manifest-path crates/app/Cargo.toml\ncooldown metadata --locked --format-version=1 --all-features --manifest-path crates/app/Cargo.toml' \
               serde \
               --manifest-path crates/app/Cargo.toml
             assert_calls add \
-              $'cooldown add -p member serde\ncooldown metadata --locked --format-version=1' \
+              $'cooldown add -p member serde\ncooldown metadata --locked --format-version=1 --all-features' \
               -p member serde
             assert_calls add \
-              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown metadata --locked --format-version=1 --features derive,alloc --all-features --no-default-features' \
+              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown metadata --locked --format-version=1 --all-features --features derive,alloc --no-default-features' \
               --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features
-            assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1'
-            assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --offline' --offline
-            assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --frozen' serde --frozen
+            assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1 --all-features'
+            assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
+            assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
             assert_calls update "cooldown update"
             assert_cargo_invocation "cooldown update --offline" --offline update
             assert_cargo_invocation \
-              $'cooldown add --config net.offline=true serde\ncooldown metadata --locked --format-version=1 --config net.offline=true' \
+              $'cooldown add --config net.offline=true serde\ncooldown metadata --locked --format-version=1 --config net.offline=true --all-features' \
               --config net.offline=true \
               add \
               serde
