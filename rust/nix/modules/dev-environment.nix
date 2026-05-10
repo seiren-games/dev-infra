@@ -54,10 +54,10 @@ let
         local self
         self="$(readlink -f "$0")"
 
-        local candidate
+        local candidate candidate_resolved
         while IFS= read -r candidate; do
-          candidate="$(readlink -f "$candidate")"
-          if [[ "$candidate" != "$self" ]]; then
+          candidate_resolved="$(readlink -f "$candidate")"
+          if [[ "$candidate_resolved" != "$self" ]]; then
             printf '%s\n' "$candidate"
             return 0
           fi
