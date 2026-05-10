@@ -33,7 +33,6 @@ let
     "d"
     "doc"
     "fix"
-    "info"
     "install"
     "metadata"
     "package"
