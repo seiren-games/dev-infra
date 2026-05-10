@@ -126,6 +126,9 @@ let
 
       for suffix_arg in "''${suffix[@]}"; do
         case "$suffix_arg" in
+          --)
+            break
+            ;;
           -h|--help)
             exec "$real_cargo" "$@"
             ;;
@@ -134,6 +137,12 @@ let
 
       for (( suffix_index = 0; suffix_index < ''${#suffix[@]}; suffix_index++ )); do
         case "''${suffix[suffix_index]}" in
+          --)
+            break
+            ;;
+          --locked|--offline|--frozen)
+            cooldown_check_args+=("''${suffix[suffix_index]}")
+            ;;
           --manifest-path)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then
               cooldown_check_args+=("--manifest-path" "''${suffix[suffix_index + 1]}")

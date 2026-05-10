@@ -85,11 +85,15 @@
               serde \
               --manifest-path crates/app/Cargo.toml
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1'
+            assert_calls fetch $'cooldown fetch --offline\ncooldown --offline metadata --locked --format-version=1' --offline
+            assert_calls add $'cooldown add serde --frozen\ncooldown --frozen metadata --locked --format-version=1' serde --frozen
             assert_calls update "cooldown update"
             assert_calls update "update --help" --help
             assert_calls add "add --help" --help
             assert_calls build "--locked build"
             assert_calls build "build --help" --help
+            assert_calls run "--locked run -- --help" -- --help
+            assert_calls test "--locked test -- --help" -- --help
 
             touch "$out"
           '';
