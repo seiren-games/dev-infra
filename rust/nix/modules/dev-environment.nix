@@ -10,8 +10,11 @@
 let
   cfg = config.devInfra.rust.devEnvironment;
 
-  cargoCooldownCommands = [
+  cargoCooldownUpdateCommands = [
     "update"
+  ];
+
+  cargoCooldownPostCheckCommands = [
     "add"
     "remove"
     "rm"
@@ -20,7 +23,8 @@ let
     "fetch"
   ];
 
-  cargoCooldownCommandPattern = lib.concatStringsSep "|" cargoCooldownCommands;
+  cargoCooldownUpdateCommandPattern = lib.concatStringsSep "|" cargoCooldownUpdateCommands;
+  cargoCooldownPostCheckCommandPattern = lib.concatStringsSep "|" cargoCooldownPostCheckCommands;
 
   cargoCooldown = pkgs.rustPlatform.buildRustPackage rec {
     pname = "cargo-cooldown";
@@ -118,10 +122,31 @@ let
 
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
+      cooldown_check_args=()
+
+      for (( suffix_index = 0; suffix_index < ''${#suffix[@]}; suffix_index++ )); do
+        case "''${suffix[suffix_index]}" in
+          --manifest-path)
+            if (( suffix_index + 1 < ''${#suffix[@]} )); then
+              cooldown_check_args+=("--manifest-path" "''${suffix[suffix_index + 1]}")
+              suffix_index=$((suffix_index + 1))
+            fi
+            ;;
+          --manifest-path=*)
+            cooldown_check_args+=("''${suffix[suffix_index]}")
+            ;;
+        esac
+      done
 
       case "$command" in
-        ${cargoCooldownCommandPattern})
+        ${cargoCooldownUpdateCommandPattern})
           exec "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}"
+          ;;
+        ${cargoCooldownPostCheckCommandPattern})
+          "$real_cargo" "''${prefix[@]}" cooldown "$command" "''${suffix[@]}" || exit $?
+          exec "$real_cargo" "''${prefix[@]}" cooldown "''${cooldown_check_args[@]}" metadata \
+            --locked \
+            --format-version=1 > /dev/null
           ;;
       esac
 

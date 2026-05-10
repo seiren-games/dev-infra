@@ -50,9 +50,46 @@
 
       checks = forAllSystems (
         { pkgs }:
-        {
-          rust-dev-environment =
+        let
+          rustDevEnvironment =
             (evalRustDevEnvironment pkgs).config.devInfra.rust.devEnvironment.package;
+        in
+        {
+          rust-dev-environment = rustDevEnvironment;
+
+          rust-dev-environment-wrapper-policy = pkgs.runCommand "dev-infra-rust-wrapper-policy-check" { } ''
+            fake_cargo="$TMPDIR/fake-cargo/bin"
+            mkdir -p "$fake_cargo"
+
+            cat > "$fake_cargo/cargo" <<'EOF'
+            #!${pkgs.runtimeShell}
+            printf '%s\n' "$*" >> "$CARGO_CALL_LOG"
+            EOF
+            chmod +x "$fake_cargo/cargo"
+
+            assert_calls() {
+              local command="$1"
+              local expected="$2"
+              shift 2
+
+              : > "$CARGO_CALL_LOG"
+              PATH="${rustDevEnvironment}/bin:$fake_cargo:$PATH" cargo "$command" "$@"
+              diff -u <(printf '%s\n' "$expected") "$CARGO_CALL_LOG"
+            }
+
+            export CARGO_CALL_LOG="$TMPDIR/cargo-calls"
+
+            assert_calls add $'cooldown add serde\ncooldown metadata --locked --format-version=1' serde
+            assert_calls add \
+              $'cooldown add serde --manifest-path crates/app/Cargo.toml\ncooldown --manifest-path crates/app/Cargo.toml metadata --locked --format-version=1' \
+              serde \
+              --manifest-path crates/app/Cargo.toml
+            assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1'
+            assert_calls update "cooldown update"
+            assert_calls build "--locked build"
+
+            touch "$out"
+          '';
         }
       );
 
