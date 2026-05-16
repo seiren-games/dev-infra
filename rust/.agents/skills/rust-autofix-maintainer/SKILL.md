@@ -34,15 +34,15 @@ tombi lint .
 ```
 
 ## 静的解析
-2. 機械的に直せる範囲のみその場で自動修正
+1. 機械的に直せる範囲のみその場で自動修正
 ```sh
-cargo clippy --fix --allow-dirty --workspace --all-features
+cargo clippy --fix --allow-dirty --workspace --all-targets --all-features
 ```
-3. 再度静的解析を行い、残っているエラーがあればコードを修正する
+2. 再度静的解析を行い、残っているエラーがあればコードを修正する
 ```sh
 cargo clippy --workspace --all-targets --all-features --message-format=json -- -W warnings
 ```
-4. 最終確認
+3. 最終確認
 ```sh
 cargo clippy --workspace --all-targets --all-features --message-format=json -- -D warnings
 ```
