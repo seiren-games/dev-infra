@@ -117,8 +117,12 @@
             assert_calls add \
               $'cooldown add serde --features derive\ncooldown metadata --locked --format-version=1 --all-features' \
               serde --features derive
-            assert_calls add $'cooldown add --path ../dep' --path ../dep
-            assert_calls add $'cooldown add serde --path=../dep' serde --path=../dep
+            assert_calls add \
+              $'cooldown add --path ../dep\ncooldown metadata --locked --format-version=1 --all-features' \
+              --path ../dep
+            assert_calls add \
+              $'cooldown add serde --path=../dep\ncooldown metadata --locked --format-version=1 --all-features' \
+              serde --path=../dep
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1 --all-features'
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
             assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
