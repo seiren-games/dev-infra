@@ -136,6 +136,23 @@ let
         return 1
       }
 
+      has_cargo_add_path_arg() {
+        local arg
+
+        for arg in "$@"; do
+          case "$arg" in
+            --)
+              return 1
+              ;;
+            --path|--path=*)
+              return 0
+              ;;
+          esac
+        done
+
+        return 1
+      }
+
       command_accepts_cargo_locking_arg() {
         case "$1" in
           ${cargoLockingCommandPattern})
@@ -287,6 +304,9 @@ let
           env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
             "''${cooldown_command_args[@]}" || exit $?
+          if [[ "$command" == add ]] && has_cargo_add_path_arg "''${suffix[@]}"; then
+            exit 0
+          fi
           exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
             metadata \
