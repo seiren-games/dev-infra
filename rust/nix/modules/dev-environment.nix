@@ -224,7 +224,10 @@ let
       command="''${args[command_index]}"
       suffix=("''${args[@]:command_index + 1}")
       cooldown_command_args=("$command" "''${command_prefix_args[@]}" "''${suffix[@]}")
-      cooldown_metadata_args=(--all-features)
+      cooldown_post_check_command=metadata
+      cooldown_post_check_args=(--locked --format-version=1 --all-features)
+      cooldown_post_check_selector_args=()
+      cooldown_post_check_needs_package_selection=false
       cargo_lock_args=()
 
       if command_accepts_cargo_locking_arg "$command" \
@@ -250,21 +253,60 @@ let
             break
             ;;
           --offline|--frozen)
-            cooldown_metadata_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
             ;;
           --all-features)
             ;;
+          -p|--package)
+            if (( suffix_index + 1 < ''${#suffix[@]} )); then
+              cooldown_post_check_selector_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
+              cooldown_post_check_needs_package_selection=true
+              suffix_index=$((suffix_index + 1))
+            fi
+            ;;
+          -p*)
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_needs_package_selection=true
+            ;;
+          --package=*)
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_needs_package_selection=true
+            ;;
+          --workspace)
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_needs_package_selection=true
+            ;;
+          --all)
+            cooldown_post_check_selector_args+=(--workspace)
+            cooldown_post_check_needs_package_selection=true
+            ;;
+          --exclude)
+            if (( suffix_index + 1 < ''${#suffix[@]} )); then
+              cooldown_post_check_selector_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
+              cooldown_post_check_needs_package_selection=true
+              suffix_index=$((suffix_index + 1))
+            fi
+            ;;
+          --exclude=*)
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_needs_package_selection=true
+            ;;
           --manifest-path)
             if (( suffix_index + 1 < ''${#suffix[@]} )); then
-              cooldown_metadata_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
+              cooldown_post_check_selector_args+=("''${suffix[suffix_index]}" "''${suffix[suffix_index + 1]}")
               suffix_index=$((suffix_index + 1))
             fi
             ;;
           --manifest-path=*)
-            cooldown_metadata_args+=("''${suffix[suffix_index]}")
+            cooldown_post_check_selector_args+=("''${suffix[suffix_index]}")
             ;;
         esac
       done
+
+      if [[ "$cooldown_post_check_needs_package_selection" == true ]]; then
+        cooldown_post_check_command=tree
+        cooldown_post_check_args=(--locked --all-features --depth 0)
+      fi
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern}|${cargoCooldownPostCheckCommandPattern})
@@ -289,11 +331,10 @@ let
             "''${cooldown_command_args[@]}" || exit $?
           exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
-            metadata \
+            "$cooldown_post_check_command" \
             "''${command_prefix_args[@]}" \
-            --locked \
-            --format-version=1 \
-            "''${cooldown_metadata_args[@]}" > /dev/null
+            "''${cooldown_post_check_args[@]}" \
+            "''${cooldown_post_check_selector_args[@]}" > /dev/null
           ;;
       esac
 

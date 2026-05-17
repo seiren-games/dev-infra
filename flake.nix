@@ -109,10 +109,10 @@
               serde \
               --manifest-path crates/app/Cargo.toml
             assert_calls add \
-              $'cooldown add -p member serde\ncooldown metadata --locked --format-version=1 --all-features' \
+              $'cooldown add -p member serde\ncooldown tree --locked --all-features --depth 0 -p member' \
               -p member serde
             assert_calls add \
-              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown metadata --locked --format-version=1 --all-features' \
+              $'cooldown add --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features\ncooldown tree --locked --all-features --depth 0 --workspace --exclude old-app' \
               --workspace --exclude old-app serde --features derive,alloc --all-features --no-default-features
             assert_calls add \
               $'cooldown add serde --features derive\ncooldown metadata --locked --format-version=1 --all-features' \
