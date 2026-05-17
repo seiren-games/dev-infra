@@ -136,6 +136,28 @@ let
         return 1
       }
 
+      collect_cargo_cooldown_constraint_args() {
+        local arg
+
+        for arg in "$@"; do
+          case "$arg" in
+            --)
+              return 0
+              ;;
+            --locked)
+              cargo_cooldown_locked=true
+              ;;
+            --offline)
+              cargo_cooldown_offline=true
+              ;;
+            --frozen)
+              cargo_cooldown_locked=true
+              cargo_cooldown_offline=true
+              ;;
+          esac
+        done
+      }
+
       command_accepts_cargo_locking_arg() {
         case "$1" in
           ${cargoLockingCommandPattern})
@@ -225,10 +247,27 @@ let
       suffix=("''${args[@]:command_index + 1}")
       cooldown_command_args=("$command" "''${command_prefix_args[@]}" "''${suffix[@]}")
       cooldown_post_check_command=metadata
-      cooldown_post_check_args=(--locked --format-version=1 --all-features)
+      cooldown_post_check_lock_args=()
+      cooldown_post_check_args=()
       cooldown_post_check_selector_args=()
       cooldown_post_check_needs_package_selection=false
       cargo_lock_args=()
+      cargo_cooldown_locked=false
+      cargo_cooldown_offline=false
+
+      collect_cargo_cooldown_constraint_args "''${command_prefix_args[@]}"
+      collect_cargo_cooldown_constraint_args "''${suffix[@]}"
+
+      if [[ "$cargo_cooldown_locked" != true ]]; then
+        cooldown_post_check_lock_args=(--locked)
+      fi
+
+      cooldown_post_check_args=("''${cooldown_post_check_lock_args[@]}" --format-version=1 --all-features)
+
+      cargo_cooldown_shim_env=(
+        "DEV_INFRA_CARGO_COOLDOWN_LOCKED=$cargo_cooldown_locked"
+        "DEV_INFRA_CARGO_COOLDOWN_OFFLINE=$cargo_cooldown_offline"
+      )
 
       if command_accepts_cargo_locking_arg "$command" \
         && ! has_cargo_locking_arg "''${command_prefix_args[@]}" \
@@ -305,7 +344,7 @@ let
 
       if [[ "$cooldown_post_check_needs_package_selection" == true ]]; then
         cooldown_post_check_command=tree
-        cooldown_post_check_args=(--locked --all-features --depth 0)
+        cooldown_post_check_args=("''${cooldown_post_check_lock_args[@]}" --all-features --depth 0)
       fi
 
       case "$command" in
@@ -321,15 +360,15 @@ let
 
       case "$command" in
         ${cargoCooldownUpdateCommandPattern})
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
+          exec env "''${cooldown_policy_env[@]}" "''${cargo_cooldown_shim_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
             "''${cooldown_command_args[@]}"
           ;;
         ${cargoCooldownPostCheckCommandPattern})
-          env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
+          env "''${cooldown_policy_env[@]}" "''${cargo_cooldown_shim_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
             "''${cooldown_command_args[@]}" || exit $?
-          exec env "''${cooldown_policy_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
+          exec env "''${cooldown_policy_env[@]}" "''${cargo_cooldown_shim_env[@]}" "$real_cargo" "''${cargo_invocation_args[@]}" \
             cooldown \
             "$cooldown_post_check_command" \
             "''${command_prefix_args[@]}" \
@@ -349,7 +388,40 @@ let
   realCargoShim = pkgs.writeShellApplication {
     name = "cargo";
     text = ''
-      exec "$DEV_INFRA_REAL_CARGO" "$@"
+      has_cargo_arg() {
+        local expected="$1"
+        shift
+
+        local arg
+        for arg in "$@"; do
+          case "$arg" in
+            --)
+              return 1
+              ;;
+            "$expected")
+              return 0
+              ;;
+          esac
+        done
+
+        return 1
+      }
+
+      cargo_constraint_args=()
+
+      if [[ "''${DEV_INFRA_CARGO_COOLDOWN_LOCKED:-false}" == true ]] \
+        && ! has_cargo_arg --locked "$@" \
+        && ! has_cargo_arg --frozen "$@"; then
+        cargo_constraint_args+=(--locked)
+      fi
+
+      if [[ "''${DEV_INFRA_CARGO_COOLDOWN_OFFLINE:-false}" == true ]] \
+        && ! has_cargo_arg --offline "$@" \
+        && ! has_cargo_arg --frozen "$@"; then
+        cargo_constraint_args+=(--offline)
+      fi
+
+      exec "$DEV_INFRA_REAL_CARGO" "''${cargo_constraint_args[@]}" "$@"
     '';
   };
 in

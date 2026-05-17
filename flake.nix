@@ -70,6 +70,9 @@
                 [ "$COOLDOWN_ENFORCEMENT" = strict ]
                 [ "$COOLDOWN_LOCKFILE_BASELINE" = ignore ]
                 [ "$(command -v cargo-cooldown)" != "$FAKE_CARGO_DIR/cargo-cooldown" ]
+                if [ "''${SIMULATE_COOLDOWN_INTERNAL_CARGO:-}" = 1 ]; then
+                  SIMULATE_COOLDOWN_INTERNAL_CARGO=0 cargo metadata
+                fi
                 break
               fi
             done
@@ -125,7 +128,7 @@
               serde --path=../dep
             assert_calls fetch $'cooldown fetch\ncooldown metadata --locked --format-version=1 --all-features'
             assert_calls fetch $'cooldown fetch --offline\ncooldown metadata --locked --format-version=1 --all-features --offline' --offline
-            assert_calls add $'cooldown add serde --frozen\ncooldown metadata --locked --format-version=1 --all-features --frozen' serde --frozen
+            assert_calls add $'cooldown add serde --frozen\ncooldown metadata --format-version=1 --all-features --frozen' serde --frozen
             assert_calls add "add serde --dry-run" serde --dry-run
             assert_cargo_invocation "--offline add serde --dry-run" --offline add serde --dry-run
             assert_calls update "update --dry-run" --dry-run
@@ -136,7 +139,7 @@
               --offline \
               fetch
             assert_cargo_invocation \
-              $'cooldown upgrade --offline --locked\ncooldown metadata --offline --locked --format-version=1 --all-features' \
+              $'cooldown upgrade --offline --locked\ncooldown metadata --offline --format-version=1 --all-features' \
               --offline \
               upgrade \
               --locked
@@ -145,6 +148,14 @@
               --config net.offline=true \
               add \
               serde
+            SIMULATE_COOLDOWN_INTERNAL_CARGO=1 assert_cargo_invocation \
+              $'--locked metadata\ncooldown fetch --locked\n--locked metadata\ncooldown metadata --locked --format-version=1 --all-features' \
+              --locked \
+              fetch
+            SIMULATE_COOLDOWN_INTERNAL_CARGO=1 assert_cargo_invocation \
+              $'--locked --offline metadata\ncooldown fetch --frozen\n--locked --offline metadata\ncooldown metadata --format-version=1 --all-features --frozen' \
+              fetch \
+              --frozen
             assert_calls update "update --help" --help
             assert_calls add "add --help" --help
             assert_calls build "build --locked"
