@@ -53,10 +53,10 @@ jobs:
           tool: cargo-audit@0.22.1,tombi@0.9.23
           fallback: none
 
-      - name: Install Nix CI tools
+      - name: Install Nix development environment
         run: |
           DEV_INFRA_REV="$(nix eval --impure --raw --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes."dev-infra".locked.rev')"
-          nix profile install "github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-ci-tools"
+          nix profile install "github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-dev-environment"
           echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
 
       - name: Cargo upgrade check

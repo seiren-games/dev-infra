@@ -52,3 +52,14 @@ keywords = [
   "機密",
   "秘匿",
 ]
+
+[[rules.allowlists]]
+description = "README documents that confidential information markers are blocked."
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^README\.md$''',
+]
+regexes = [
+  '''パターン、または機密情報を示す marker を検出した場合に commit と push を''',
+]

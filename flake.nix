@@ -8,7 +8,7 @@
   outputs =
     { nixpkgs, ... }:
     let
-      rustCiToolsModule = import ./rust/nix/modules/ci-tools.nix;
+      rustDevEnvironmentModule = import ./rust/nix/modules/dev-environment.nix;
 
       systems = [
         "aarch64-darwin"
@@ -26,24 +26,33 @@
           }
         );
 
-      evalRustCiTools =
+      evalRustDevEnvironment =
         pkgs:
         nixpkgs.lib.evalModules {
           specialArgs = { inherit pkgs; };
           modules = [
-            rustCiToolsModule
+            rustDevEnvironmentModule
           ];
         };
     in
     {
       lib = {
-        rustCiToolsModule = rustCiToolsModule;
+        rustDevEnvironmentModule = rustDevEnvironmentModule;
       };
 
       packages = forAllSystems (
         { pkgs }:
         {
-          rust-ci-tools = (evalRustCiTools pkgs).config.devInfra.rust.ciTools.package;
+          rust-dev-environment =
+            (evalRustDevEnvironment pkgs).config.devInfra.rust.devEnvironment.package;
+        }
+      );
+
+      checks = forAllSystems (
+        { pkgs }:
+        {
+          rust-dev-environment =
+            (evalRustDevEnvironment pkgs).config.devInfra.rust.devEnvironment.package;
         }
       );
 
