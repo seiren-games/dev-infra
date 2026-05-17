@@ -14,15 +14,6 @@ nix profile install github:seiren-games/dev-infra#rust-dev-environment
 `inputs.dev-infra.lib.rustDevEnvironmentModule` を import し、
 `devInfra.rust.devEnvironment.packages` を override できます。
 
-共有環境は `cargo` wrapper を提供します。`cargo update`、`cargo add`、
-`cargo remove`、`cargo upgrade` など、manifest や lockfile を更新する
-コマンドは、固定された `cargo-cooldown` 経由で実行されます。
-`cargo generate-lockfile` や `cargo fetch` のように lockfile 解決を明示する
-コマンドも同じ経路を通ります。それ以外では、lockfile flag に対応する既知の
-Cargo コマンドだけが Cargo のグローバルな `--locked` flag 付きで実行されます。
-`cargo audit` などの外部サブコマンドには wrapper から `--locked` を追加しません。
-共有 cooldown policy file は `rust/cooldown.toml` です。
-
 ## シークレットスキャン
 
 このリポジトリは Git hook を提供し、gitleaks がシークレット、個人情報の

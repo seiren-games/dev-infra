@@ -8,7 +8,7 @@ metadata:
 
 # Dependency policy (Rust)
 
-1. 依存追加は `cargo add <crate>` を使い、バージョン指定はしない（cooldown policy が許可する最新版を採用する）
+1. 依存追加は `cargo add <crate>` を使い、バージョン指定はしない（最新の安定版を採用する）
 2. 依存の更新は `cargo upgrade`（cargo-edit）で `Cargo.toml` を更新した後、`cargo update` で `Cargo.lock` を更新する
 3. メジャー更新が絡むときは互換性検証のタスクを起票する
 
