@@ -3,8 +3,8 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "cargo",
-			"command": "test",
+			"type": "shell",
+			"command": "nix develop --no-update-lock-file --command cargo test",
 			"problemMatcher": [
 				"$rustc"
 			],
@@ -15,7 +15,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "cross build --target x86_64-pc-windows-gnu --release --locked",
+			"command": "nix develop --no-update-lock-file --command cross build --target x86_64-pc-windows-gnu --release --locked",
 			"problemMatcher": [
 				"$rustc"
 			],

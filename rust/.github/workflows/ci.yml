@@ -53,23 +53,42 @@ jobs:
           tool: cargo-audit@0.22.1,tombi@0.9.23
           fallback: none
 
-      - name: Install Nix development environment
+      - name: Select Nix development environment
         run: |
           DEV_INFRA_REV="$(nix eval --impure --raw --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes."dev-infra".locked.rev')"
-          nix profile install "github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-dev-environment"
-          echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+          RUST_DEV_COMMAND="$RUNNER_TEMP/run-in-rust-dev-shell"
+          cat > "$RUST_DEV_COMMAND" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          exec nix develop --no-update-lock-file "$RUST_DEV_SHELL" --command "$@"
+          EOF
+          chmod 0700 "$RUST_DEV_COMMAND"
+          echo "RUST_DEV_SHELL=github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-dev-environment" >> "$GITHUB_ENV"
+          echo "RUST_DEV_COMMAND=$RUST_DEV_COMMAND" >> "$GITHUB_ENV"
 
       - name: Verify Cargo dependency cooldown
         run: |
-          cargo -Z help | grep -F -- "-Z min-publish-age"
-          cargo -Zunstable-options config get unstable.min-publish-age | grep -Fx 'unstable.min-publish-age = true'
-          cargo -Zunstable-options config get resolver.incompatible-publish-age | grep -Fx 'resolver.incompatible-publish-age = "deny"'
-          cargo -Zunstable-options config get registry.global-min-publish-age | grep -Fx 'registry.global-min-publish-age = "7 days"'
-          if cargo -Zunstable-options config get registry.min-publish-age > /dev/null 2>&1; then
+          NIGHTLY_CARGO_COMMIT="$(
+            "$RUST_DEV_COMMAND" printenv DEV_INFRA_RUST_NIGHTLY_CARGO_COMMIT
+          )"
+          "$RUST_DEV_COMMAND" cargo --version --verbose \
+            | grep -Fx "commit-hash: $NIGHTLY_CARGO_COMMIT"
+          "$RUST_DEV_COMMAND" cargo -Z help \
+            | grep -F -- "-Z min-publish-age"
+          "$RUST_DEV_COMMAND" cargo -Zunstable-options config get unstable.min-publish-age \
+            | grep -Fx 'unstable.min-publish-age = true'
+          "$RUST_DEV_COMMAND" cargo -Zunstable-options config get resolver.incompatible-publish-age \
+            | grep -Fx 'resolver.incompatible-publish-age = "deny"'
+          "$RUST_DEV_COMMAND" cargo -Zunstable-options config get registry.global-min-publish-age \
+            | grep -Fx 'registry.global-min-publish-age = "7 days"'
+          if "$RUST_DEV_COMMAND" cargo -Zunstable-options config get registry.min-publish-age \
+            > /dev/null 2>&1; then
             echo "registry.min-publish-age must not override the global policy" >&2
             exit 1
           fi
-          if cargo -Zunstable-options config get registries 2> /dev/null | grep -F ".min-publish-age"; then
+          if "$RUST_DEV_COMMAND" cargo -Zunstable-options config get registries 2> /dev/null \
+            | grep -F ".min-publish-age"; then
             echo "registries.<name>.min-publish-age must not override the global policy" >&2
             exit 1
           fi
@@ -82,26 +101,27 @@ jobs:
         run: |
           CARGO_LOCK_CHECK_DIR="$RUNNER_TEMP/cargo-lock-check"
           mkdir -p "$CARGO_LOCK_CHECK_DIR"
-          CARGO_RESOLVER_LOCKFILE_PATH="$CARGO_LOCK_CHECK_DIR/Cargo.lock" cargo generate-lockfile
+          CARGO_RESOLVER_LOCKFILE_PATH="$CARGO_LOCK_CHECK_DIR/Cargo.lock" \
+            "$RUST_DEV_COMMAND" cargo generate-lockfile
           diff --unified Cargo.lock "$CARGO_LOCK_CHECK_DIR/Cargo.lock"
 
       - name: Audit for vulnerabilities
-        run: cargo audit --deny warnings
+        run: '"$RUST_DEV_COMMAND" cargo audit --deny warnings'
 
       - name: Tombi format check
         run: tombi format --check
 
       - name: Rustfmt check
-        run: cargo fmt --all -- --check
+        run: '"$RUST_DEV_COMMAND" cargo fmt --all -- --check'
 
       - name: Tombi lint
         run: tombi lint .
 
       - name: Clippy lint
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: '"$RUST_DEV_COMMAND" cargo clippy --locked --workspace --all-targets --all-features -- -D warnings'
 
       - name: Test suite
-        run: cargo test --workspace --all-targets --all-features
+        run: '"$RUST_DEV_COMMAND" cargo test --locked --workspace --all-targets --all-features'
 
       - name: Ensure working tree clean
         run: |

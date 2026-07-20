@@ -7,19 +7,96 @@ Rust 開発ツールは Nix 経由でパッケージ化されています。依�
 `min-publish-age` を利用できる固定 revision の nightly Cargo を使い、Rust compiler、
 Clippy、rustfmt は各プロジェクトが選択した toolchain をそのまま使います。
 
-```sh
-nix profile install github:seiren-games/dev-infra#rust-dev-environment
+各 Rust リポジトリでは、`inputs.dev-infra.lib.rustDevEnvironmentModule` を評価し、
+module が提供する dev shell をそのリポジトリの default dev shell として公開します。
+`dev-infra` input は flake として読み込み、`flake = false` は設定しません。
+次の部分を各 system の flake output に組み込みます。
+
+```nix
+let
+  rustDevEnvironment = nixpkgs.lib.evalModules {
+    specialArgs = { inherit pkgs; };
+    modules = [ inputs.dev-infra.lib.rustDevEnvironmentModule ];
+  };
+in
+{
+  devShells.default = rustDevEnvironment.config.devInfra.rust.devEnvironment.devShell;
+}
 ```
 
-このパッケージは `rust/nix/modules/dev-environment.nix` からビルドされます。
-ツール一覧のカスタマイズが必要なリポジトリでは、
-`inputs.dev-infra.lib.rustDevEnvironmentModule` を import し、
-`devInfra.rust.devEnvironment.packages` を override できます。依存ポリシーを強制する
-nightly Cargo は、この一覧を override しても開発環境から除外されません。
+ツール一覧は `devInfra.rust.devEnvironment.packages` を module 評価時に override して
+カスタマイズできます。依存ポリシーを強制する nightly Cargo は、この一覧を
+override しても dev shell から除外されません。
 
-インストール後は、Nix profile の `bin` が rustup などより先に解決されることを
-次のコマンドで確認してください。feature が表示されない場合は、シェルの `PATH` で
-`$HOME/.nix-profile/bin` をほかの Cargo より前に置きます。
+Cargo を使うときはリポジトリの dev shell を使用します。`nix profile install` は
+使用しないため、dev shell の解除後もホスト環境の Cargo は変更されません。
+
+### direnv による自動ロード
+
+共有する `rust/.envrc` を各 Rust リポジトリのルート `.envrc` へ、
+`rust/.cargo/config.toml` をルート `.cargo/config.toml` へ同期します。`.envrc` は
+リポジトリへ移動したときに default dev shell を自動ロードします。default dev shell
+から固定 Cargo と cooldown 設定を確認できなければ、設定ミスを見逃さないためロードに
+失敗します。
+
+自動ロードを行うホストには `direnv` と `nix-direnv` が必要です。dev shell 自体からは
+導入できないため、事前に shell integration とともに有効化します。Home Manager では
+次のように設定できます。
+
+```nix
+programs.direnv = {
+  enable = true;
+  nix-direnv.enable = true;
+};
+```
+
+設定を反映して shell を再起動した後、初回および `.envrc` が更新されたときに内容を
+確認して許可します。
+
+```sh
+direnv allow
+```
+
+以降はリポジトリへ入ると Nightly Cargo が自動的に有効になり、外へ出ると解除されます。
+nix-direnv の cached dev shell への fallback は無効化しています。dev shell の評価、
+固定した Cargo、または cooldown 設定の検証に失敗した場合は `.envrc` のロードを失敗
+させます。`flake.lock` も暗黙に更新しません。direnv がエラーを表示した shell では
+Cargo を実行しません。
+
+direnv を利用できない非対話環境では、明示的に dev shell を使用します。
+
+```sh
+nix develop --no-update-lock-file
+```
+
+この `dev-infra` リポジトリの default dev shell は Rust 用ではありません。管理元で
+Rust dev shell を検証するときは次の named dev shell を使用し、`rust/.envrc` は
+consumer 用の共有原本として扱います。
+
+```sh
+nix develop --no-update-lock-file .#rust-dev-environment
+```
+
+### VS Code の Cargo 固定
+
+共有する `rust/.vscode/settings.json`、`rust/.vscode/tasks.json`、および
+`rust/.vscode/rust-analyzer-cargo-home/bin/cargo` も、各 Rust リポジトリの同じ位置へ
+同期します。
+
+rust-analyzer は Cargo の探索時に `PATH` より `$CARGO_HOME/bin/cargo` を優先する経路が
+あるため、dev shell から VS Code を起動するだけでは固定 Cargo の利用を保証できません。
+共有設定は `CARGO_HOME` と `CARGO` の両方をリポジトリ内の Cargo wrapper へ固定します。
+wrapper は `direnv exec` でルート `.envrc` をロードしてから Cargo を実行するため、VS Code
+を GUI など別の経路から起動しても、rust-analyzer の metadata、check、build script、
+proc macro の build、および runnable には検証済みの Cargo が使われます。`.envrc` が存在
+しない、未許可、または検証に失敗した場合は Cargo の実行も失敗します。
+
+未保護の Cargo task を誤って選べないよう task の自動検出は無効化し、共有する明示的な
+task は Nix dev shell 内で実行します。この設定は単一ルートで開いた VS Code workspace を
+前提とします。統合 terminal や他の拡張機能から Cargo を直接実行する場合は、通常どおり
+direnv がロード済みであることを確認します。
+
+shell 内の Cargo を次のコマンドで確認できます。
 
 ```sh
 command -v cargo
@@ -27,14 +104,21 @@ cargo --version --verbose
 cargo -Z help | grep -F -- "-Z min-publish-age"
 ```
 
+stable Cargo は publish-age policy を適用しないため、Cargo コマンド、Cargo を呼ぶ
+エディタ、および自動化はすべて dev shell 内で実行します。
+
 ### 依存パッケージの cooldown
 
 共有する `rust/.cargo/config.toml` は、すべての対応 registry に対して公開から
-7 日未満のバージョンを新しい依存解決の候補から除外します。`cargo add` と
-`cargo update` はこのポリシーを適用します。すでに `Cargo.lock` に記録された
-バージョンは保持されるため、導入時に既存の lock file が自動で downgrade される
-ことはありません。CI では別の lock file をゼロから生成して比較するため、既存
-lock file 経由の例外を含め、7 日のポリシーを満たさない解決は失敗します。
+7 日未満のバージョンを新しい依存解決の候補から除外します。dev shell 内では
+`cargo add`、`cargo update`、build、test など、すべての Cargo コマンドに固定した
+nightly Cargo を使うため、どのコマンドから依存解決が発生してもこのポリシーが
+適用されます。
+
+すでに `Cargo.lock` に記録されたバージョンは保持されるため、導入時に既存の lock
+file が自動で downgrade されることはありません。CI では別の lock file をゼロから
+生成して比較するため、既存 lock file 経由の例外を含め、7 日のポリシーを満たさない
+解決は失敗します。CI の Clippy と test では、再現性のため `--locked` も使用します。
 
 `cargo upgrade` と `cargo update --breaking` は現時点でこのポリシーを適用しないため、
 依存更新には使用しません。ポリシー全体を無効にする

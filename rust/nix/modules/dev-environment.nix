@@ -104,7 +104,15 @@ in
       type = lib.types.package;
       readOnly = true;
       description = ''
-        Combined package exposing the shared Rust development tools on PATH.
+        Internal combined PATH used by the shared Rust development shell.
+      '';
+    };
+
+    devShell = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      description = ''
+        Project-scoped development shell that puts the pinned nightly Cargo on PATH.
       '';
     };
   };
@@ -115,6 +123,13 @@ in
     package = pkgs.buildEnv {
       name = "dev-infra-rust-dev-environment";
       paths = [ (lib.hiPrio cfg.cargoPackage) ] ++ cfg.packages;
+    };
+
+    devShell = pkgs.mkShell {
+      name = "dev-infra-rust-dev-environment";
+      packages = [ cfg.package ];
+
+      DEV_INFRA_RUST_NIGHTLY_CARGO_COMMIT = cfg.cargoPackage.commit;
     };
   };
 }
