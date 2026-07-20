@@ -3,7 +3,9 @@
 
 ## Rust 開発環境
 
-Rust 開発ツールは Nix 経由でパッケージ化されています。
+Rust 開発ツールは Nix 経由でパッケージ化されています。依存解決には
+`min-publish-age` を利用できる固定 revision の nightly Cargo を使い、Rust compiler、
+Clippy、rustfmt は各プロジェクトが選択した toolchain をそのまま使います。
 
 ```sh
 nix profile install github:seiren-games/dev-infra#rust-dev-environment
@@ -12,7 +14,33 @@ nix profile install github:seiren-games/dev-infra#rust-dev-environment
 このパッケージは `rust/nix/modules/dev-environment.nix` からビルドされます。
 ツール一覧のカスタマイズが必要なリポジトリでは、
 `inputs.dev-infra.lib.rustDevEnvironmentModule` を import し、
-`devInfra.rust.devEnvironment.packages` を override できます。
+`devInfra.rust.devEnvironment.packages` を override できます。依存ポリシーを強制する
+nightly Cargo は、この一覧を override しても開発環境から除外されません。
+
+インストール後は、Nix profile の `bin` が rustup などより先に解決されることを
+次のコマンドで確認してください。feature が表示されない場合は、シェルの `PATH` で
+`$HOME/.nix-profile/bin` をほかの Cargo より前に置きます。
+
+```sh
+command -v cargo
+cargo --version --verbose
+cargo -Z help | grep -F -- "-Z min-publish-age"
+```
+
+### 依存パッケージの cooldown
+
+共有する `rust/.cargo/config.toml` は、すべての対応 registry に対して公開から
+7 日未満のバージョンを新しい依存解決の候補から除外します。`cargo add` と
+`cargo update` はこのポリシーを適用します。すでに `Cargo.lock` に記録された
+バージョンは保持されるため、導入時に既存の lock file が自動で downgrade される
+ことはありません。CI では別の lock file をゼロから生成して比較するため、既存
+lock file 経由の例外を含め、7 日のポリシーを満たさない解決は失敗します。
+
+`cargo upgrade` と `cargo update --breaking` は現時点でこのポリシーを適用しないため、
+依存更新には使用しません。ポリシー全体を無効にする
+`CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow` も使用しません。registry からの
+`cargo install`、git dependency、path dependency、および publish time を提供しない
+registry は Cargo の min-publish-age の対象外です。
 
 ## シークレットスキャン
 

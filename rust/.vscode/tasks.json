@@ -15,7 +15,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "cross build --target x86_64-pc-windows-gnu --release",
+			"command": "cross build --target x86_64-pc-windows-gnu --release --locked",
 			"problemMatcher": [
 				"$rustc"
 			],
