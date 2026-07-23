@@ -3,7 +3,8 @@
 	"task.autoDetect": "off",
 	"rust-analyzer.server.extraEnv": {
 		"CARGO_HOME": "${workspaceFolder}/.vscode/rust-analyzer-cargo-home",
-		"CARGO": "${workspaceFolder}/.vscode/rust-analyzer-cargo-home/bin/cargo"
+		"CARGO": "${workspaceFolder}/.vscode/rust-analyzer-cargo-home/bin/cargo",
+		"PATH": "${workspaceFolder}/.vscode/rust-analyzer-cargo-home/bin:${env:PATH}"
 	},
 	"rust-analyzer.runnables.command": "./.vscode/rust-analyzer-cargo-home/bin/cargo"
 }

@@ -71,6 +71,7 @@
           rustAnalyzerCargoWrapper = ./rust + "/${rustAnalyzerCargoHomeRelative}/bin/cargo";
           rustAnalyzerCargoHomeSetting = "\${workspaceFolder}/${rustAnalyzerCargoHomeRelative}";
           rustAnalyzerCargoSetting = "${rustAnalyzerCargoHomeSetting}/bin/cargo";
+          rustAnalyzerPathSetting = "${rustAnalyzerCargoHomeSetting}/bin:\${env:PATH}";
           rustAnalyzerRunnableSetting = "./${rustAnalyzerCargoHomeRelative}/bin/cargo";
           rustAnalyzerDirenvStub = pkgs.writeShellScriptBin "direnv" ''
             set -euo pipefail
@@ -117,11 +118,13 @@
                 jq -e \
                   --arg cargoHome '${rustAnalyzerCargoHomeSetting}' \
                   --arg cargo '${rustAnalyzerCargoSetting}' \
+                  --arg path '${rustAnalyzerPathSetting}' \
                   --arg runnable '${rustAnalyzerRunnableSetting}' \
                   '
                     .["task.autoDetect"] == "off"
                     and .["rust-analyzer.server.extraEnv"].CARGO_HOME == $cargoHome
                     and .["rust-analyzer.server.extraEnv"].CARGO == $cargo
+                    and .["rust-analyzer.server.extraEnv"].PATH == $path
                     and .["rust-analyzer.runnables.command"] == $runnable
                   ' \
                   "$TMPDIR/settings.json"
