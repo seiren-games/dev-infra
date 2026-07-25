@@ -19,12 +19,16 @@ from typing import Final, Mapping
 
 SOURCE_REPOSITORY: Final = "seiren-games/dev-infra"
 SOURCE_REF: Final = "main"
-SOURCE_DIRECTORY: Final = PurePosixPath("rust")
+RUST_SOURCE_DIRECTORY: Final = PurePosixPath("rust")
+ROOT_SOURCE_FILES: Final = (
+    PurePosixPath(".editorconfig"),
+    PurePosixPath(".gitattributes"),
+)
 SOURCE_ARCHIVE_URL: Final = (
     f"https://codeload.github.com/{SOURCE_REPOSITORY}/tar.gz/refs/heads/{SOURCE_REF}"
 )
 STATE_FILE_NAME: Final = ".dev-infra-rust-sync.json"
-STATE_SCHEMA_VERSION: Final = 1
+STATE_SCHEMA_VERSION: Final = 2
 MAX_ARCHIVE_SIZE: Final = 20 * 1024 * 1024
 MANAGED_NOTICE: Final = (
     "このファイルは https://github.com/seiren-games/dev-infra で管理されています。"
@@ -70,6 +74,27 @@ def validate_relative_path(value: str) -> PurePosixPath:
     return path
 
 
+def source_identity() -> dict[str, object]:
+    return {
+        "repository": SOURCE_REPOSITORY,
+        "ref": SOURCE_REF,
+        "rust_directory": RUST_SOURCE_DIRECTORY.as_posix(),
+        "root_files": [path.as_posix() for path in ROOT_SOURCE_FILES],
+    }
+
+
+def destination_path(repository_path: PurePosixPath) -> PurePosixPath | None:
+    if repository_path in ROOT_SOURCE_FILES:
+        return repository_path
+    try:
+        relative_path = repository_path.relative_to(RUST_SOURCE_DIRECTORY)
+    except ValueError:
+        return None
+    if not relative_path.parts:
+        return None
+    return validate_relative_path(relative_path.as_posix())
+
+
 def download_source_archive() -> bytes:
     request = urllib.request.Request(
         SOURCE_ARCHIVE_URL,
@@ -104,17 +129,19 @@ def read_source_files(archive: bytes) -> dict[PurePosixPath, SourceFile]:
                 raise SyncError("取得元アーカイブが空です")
 
             archive_root = PurePosixPath(members[0].name).parts[0]
-            source_prefix = PurePosixPath(archive_root) / SOURCE_DIRECTORY
+            archive_prefix = PurePosixPath(archive_root)
             for member in members:
                 member_path = PurePosixPath(member.name)
                 try:
-                    relative_path = member_path.relative_to(source_prefix)
+                    repository_path = member_path.relative_to(archive_prefix)
                 except ValueError:
                     continue
-                if not relative_path.parts or not member.isfile():
+                if not repository_path.parts or not member.isfile():
                     continue
 
-                normalized_path = validate_relative_path(relative_path.as_posix())
+                normalized_path = destination_path(repository_path)
+                if normalized_path is None:
+                    continue
                 extracted = source_archive.extractfile(member)
                 if extracted is None:
                     raise SyncError(
@@ -126,6 +153,11 @@ def read_source_files(archive: bytes) -> dict[PurePosixPath, SourceFile]:
                 if normalized_path == PurePosixPath(STATE_FILE_NAME):
                     raise SyncError(
                         f"{STATE_FILE_NAME} は同期状態の保存用に予約されています"
+                    )
+                if normalized_path in files:
+                    raise SyncError(
+                        f"複数の取得元が同じ同期先を使用しています: "
+                        f"{normalized_path.as_posix()}"
                     )
 
                 files[normalized_path] = SourceFile(
@@ -179,15 +211,16 @@ def load_state(project_root: Path) -> SyncState:
         "files",
     }:
         raise SyncError("状態ファイルの形式が不正です")
-    if value["schema_version"] != STATE_SCHEMA_VERSION:
-        raise SyncError(
-            f"未対応の状態ファイル schema_version です: {value['schema_version']!r}"
-        )
-    if value["source"] != {
+    schema_version = value["schema_version"]
+    if schema_version not in {1, STATE_SCHEMA_VERSION}:
+        raise SyncError(f"未対応の状態ファイル schema_version です: {schema_version!r}")
+    version_one_source = {
         "repository": SOURCE_REPOSITORY,
         "ref": SOURCE_REF,
-        "directory": SOURCE_DIRECTORY.as_posix(),
-    }:
+        "directory": RUST_SOURCE_DIRECTORY.as_posix(),
+    }
+    expected_source = version_one_source if schema_version == 1 else source_identity()
+    if value["source"] != expected_source:
         raise SyncError("状態ファイルの取得元がこのスクリプトと一致しません")
     if not isinstance(value["files"], dict):
         raise SyncError("状態ファイルの files が不正です")
@@ -204,11 +237,7 @@ def load_state(project_root: Path) -> SyncState:
 def serialize_state(files: Mapping[PurePosixPath, FileVersion]) -> bytes:
     value = {
         "schema_version": STATE_SCHEMA_VERSION,
-        "source": {
-            "repository": SOURCE_REPOSITORY,
-            "ref": SOURCE_REF,
-            "directory": SOURCE_DIRECTORY.as_posix(),
-        },
+        "source": source_identity(),
         "files": {
             path.as_posix(): {
                 "sha256": version.sha256,

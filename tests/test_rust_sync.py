@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import os
 import stat
 import sys
@@ -193,6 +194,41 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(sync_module.sync(project_root, executable), 1)
             self.assertFalse((project_root / "tool").stat().st_mode & stat.S_IXUSR)
 
+    def test_version_one_state_is_migrated(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            path = PurePosixPath("shared.txt")
+            files = {path: source_file(b"shared\n")}
+            (project_root / "shared.txt").write_bytes(b"shared\n")
+            version_one_state = {
+                "schema_version": 1,
+                "source": {
+                    "repository": sync_module.SOURCE_REPOSITORY,
+                    "ref": sync_module.SOURCE_REF,
+                    "directory": "rust",
+                },
+                "files": {
+                    path.as_posix(): {
+                        "sha256": files[path].version.sha256,
+                        "executable": False,
+                    }
+                },
+            }
+            (project_root / sync_module.STATE_FILE_NAME).write_text(
+                json.dumps(version_one_state),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(sync_module.sync(project_root, files), 0)
+            migrated_state = json.loads(
+                (project_root / sync_module.STATE_FILE_NAME).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                migrated_state["schema_version"],
+                sync_module.STATE_SCHEMA_VERSION,
+            )
+            self.assertEqual(migrated_state["source"], sync_module.source_identity())
+
 
 class SourceArchiveTests(unittest.TestCase):
     def make_archive(self, files: dict[str, tuple[bytes, int]]) -> bytes:
@@ -212,6 +248,9 @@ class SourceArchiveTests(unittest.TestCase):
                 "rust/shared.txt": (b"# " + notice + b"\nshared\n", 0o644),
                 "rust/bin/tool": (b"#!/bin/sh\n# " + notice + b"\n", 0o755),
                 "rust/not-shared.txt": (b"local source file\n", 0o644),
+                ".editorconfig": (b"# " + notice + b"\nroot = true\n", 0o644),
+                ".gitattributes": (b"# " + notice + b"\n* text=auto\n", 0o644),
+                ".other-root-file": (b"# " + notice + b"\n", 0o644),
                 "README.md": (b"# repository\n", 0o644),
             }
         )
@@ -220,7 +259,12 @@ class SourceArchiveTests(unittest.TestCase):
 
         self.assertEqual(
             set(files),
-            {PurePosixPath("shared.txt"), PurePosixPath("bin/tool")},
+            {
+                PurePosixPath("shared.txt"),
+                PurePosixPath("bin/tool"),
+                PurePosixPath(".editorconfig"),
+                PurePosixPath(".gitattributes"),
+            },
         )
         self.assertTrue(files[PurePosixPath("bin/tool")].version.executable)
 
