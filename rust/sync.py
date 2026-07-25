@@ -61,6 +61,16 @@ def sha256(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def file_version(
+    content: bytes,
+    *,
+    executable: bool,
+) -> FileVersion:
+    # Compare the canonical Git representation rather than checkout-specific EOLs.
+    content = content.replace(b"\r\n", b"\n")
+    return FileVersion(sha256=sha256(content), executable=executable)
+
+
 def is_managed(content: bytes) -> bool:
     return any(MANAGED_NOTICE in line for line in content.splitlines()[:5])
 
@@ -162,8 +172,8 @@ def read_source_files(archive: bytes) -> dict[PurePosixPath, SourceFile]:
 
                 files[normalized_path] = SourceFile(
                     content=content,
-                    version=FileVersion(
-                        sha256=sha256(content),
+                    version=file_version(
+                        content,
                         executable=bool(member.mode & stat.S_IXUSR),
                     ),
                 )
@@ -287,8 +297,8 @@ def local_file_version(
         content = path.read_bytes()
     except OSError as error:
         raise SyncError(f"{path} を読み取れません: {error}") from error
-    return FileVersion(
-        sha256=sha256(content),
+    return file_version(
+        content,
         executable=bool(file_stat.st_mode & stat.S_IXUSR),
     )
 

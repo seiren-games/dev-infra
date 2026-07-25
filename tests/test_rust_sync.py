@@ -33,10 +33,7 @@ sync_module = load_sync_module()
 def source_file(content: bytes, *, executable: bool = False):
     return sync_module.SourceFile(
         content=content,
-        version=sync_module.FileVersion(
-            sha256=sync_module.sha256(content),
-            executable=executable,
-        ),
+        version=sync_module.file_version(content, executable=executable),
     )
 
 
@@ -93,6 +90,34 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(
                 sync_module.load_state(project_root).files[path],
                 new_files[path].version,
+            )
+
+    def test_checkout_crlf_conversion_remains_clean_for_update_and_removal(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            updated_path = PurePosixPath("update.bat")
+            removed_path = PurePosixPath("remove.cmd")
+            old_files = {
+                updated_path: source_file(b"@echo old\n"),
+                removed_path: source_file(b"@echo remove\n"),
+            }
+            new_files = {updated_path: source_file(b"@echo new\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+
+            (project_root / updated_path).write_bytes(b"@echo old\r\n")
+            (project_root / removed_path).write_bytes(b"@echo remove\r\n")
+
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertEqual(
+                (project_root / updated_path).read_bytes(),
+                new_files[updated_path].content,
+            )
+            self.assertFalse((project_root / removed_path).exists())
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {updated_path: new_files[updated_path].version},
             )
 
     def test_initial_existing_different_file_is_a_conflict(self) -> None:
