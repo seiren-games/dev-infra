@@ -322,6 +322,15 @@ def write_file_atomically(
                 pass
 
 
+def prune_empty_parent_directories(project_root: Path, parent: Path) -> None:
+    while parent != project_root:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+
+
 def delete_file(project_root: Path, relative_path: PurePosixPath) -> None:
     destination = project_root.joinpath(*relative_path.parts)
     try:
@@ -329,13 +338,7 @@ def delete_file(project_root: Path, relative_path: PurePosixPath) -> None:
     except OSError as error:
         raise SyncError(f"{destination} を削除できません: {error}") from error
 
-    parent = destination.parent
-    while parent != project_root:
-        try:
-            parent.rmdir()
-        except OSError:
-            break
-        parent = parent.parent
+    prune_empty_parent_directories(project_root, destination.parent)
 
 
 def save_state(
@@ -377,6 +380,7 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
 
         previous_version = previous_state.files[relative_path]
         if local_version is None:
+            prune_empty_parent_directories(project_root, destination.parent)
             next_state.pop(relative_path, None)
             continue
         if local_version != previous_version:

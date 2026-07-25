@@ -216,6 +216,26 @@ class SyncTests(unittest.TestCase):
                 {new_path: new_files[new_path].version},
             )
 
+    def test_empty_directory_with_missing_managed_file_can_be_replaced_with_file(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            old_path = PurePosixPath("shared/config.toml")
+            new_path = PurePosixPath("shared")
+            old_files = {old_path: source_file(b"old nested file\n")}
+            new_files = {new_path: source_file(b"new file\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+            (project_root / "shared/config.toml").unlink()
+
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertTrue((project_root / "shared").is_file())
+            self.assertEqual((project_root / "shared").read_bytes(), b"new file\n")
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {new_path: new_files[new_path].version},
+            )
+
     def test_executable_bit_change_uses_the_same_conflict_rules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
