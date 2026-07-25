@@ -371,6 +371,9 @@ def prune_empty_parent_directories(project_root: Path, parent: Path) -> None:
     while parent != project_root:
         try:
             parent.rmdir()
+        except FileNotFoundError:
+            parent = parent.parent
+            continue
         except OSError:
             break
         parent = parent.parent
