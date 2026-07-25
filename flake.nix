@@ -101,6 +101,17 @@
             touch "$out"
           '';
 
+          rust-shared-files-sync =
+            pkgs.runCommand "rust-shared-files-sync-check"
+              {
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                DEV_INFRA_TEST_ROOT=${./.} \
+                  python3 -m unittest discover -s ${./tests} -p 'test_*.py' -v
+                touch "$out"
+              '';
+
           rust-vscode-cargo =
             pkgs.runCommand "rust-vscode-cargo-check"
               {

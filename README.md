@@ -7,6 +7,31 @@ Rust 開発ツールは Nix 経由でパッケージ化されています。依�
 `min-publish-age` を利用できる固定 revision の nightly Cargo を使い、Rust compiler、
 Clippy、rustfmt は各プロジェクトが選択した toolchain をそのまま使います。
 
+### 共有ファイルの同期
+
+初回導入時は [`rust/sync.py`](rust/sync.py) を Rust リポジトリのルートへ同じ
+`sync.py` という名前でコピーし、Python 3 で実行します。以後はこのスクリプト自身も
+同期対象です。
+
+```sh
+python3 sync.py
+```
+
+スクリプトは `dev-infra` の `main` ブランチから `rust/` を取得し、先頭 5 行以内に
+管理元ヘッダーがあるファイルを Rust リポジトリの同じ相対パスへ同期します。未配置の
+ファイルは作成し、前回同期後に変更されていない旧版は更新します。最新版と一致する
+ファイルは書き換えません。
+
+同期結果はルートの `.dev-infra-rust-sync.json` に記録されます。この状態ファイルは
+共有ファイルと一緒にリポジトリへ commit してください。利用側で内容または実行権限を
+変更したファイルは上書きせず、そのファイルだけ同期エラーにして他のファイルの同期を
+続けます。初回実行時にすでに存在し、最新版と異なるファイルも、安全のため変更済み
+として扱います。
+
+`dev-infra` でファイルが削除された場合や管理元ヘッダーが外された場合、そのファイルが
+前回同期後に変更されていなければ自動削除します。変更されていれば削除せず同期エラーに
+します。いずれかのファイルで同期エラーが発生した場合、終了 status は非ゼロです。
+
 各 Rust リポジトリでは、`inputs.dev-infra.lib.rustDevEnvironmentModule` を評価し、
 module が提供する dev shell をそのリポジトリの default dev shell として公開します。
 `dev-infra` input は flake として読み込み、`flake = false` は設定しません。
