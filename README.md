@@ -10,7 +10,7 @@ Clippy、rustfmt は各プロジェクトが選択した toolchain をそのま�
 ### 共有ファイルの同期
 
 初回導入時は [`rust/sync.py`](rust/sync.py) を Rust リポジトリのルートへ同じ
-`sync.py` という名前でコピーし、Python 3.7 以降で実行します。以後はこのスクリプト
+`sync.py` という名前でコピーし、Python 3.13 以降で実行します。以後はこのスクリプト
 自身も同期対象です。
 
 ```sh
