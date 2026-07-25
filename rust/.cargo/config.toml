@@ -1,0 +1,10 @@
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+
+[unstable]
+min-publish-age = true
+
+[resolver]
+incompatible-publish-age = "deny"
+
+[registry]
+global-min-publish-age = "7 days"

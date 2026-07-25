@@ -9,6 +9,11 @@
 - 読み取り専用のGitコマンド（副作用がなく何も変更しないもの）は許可なく実行して構わない。
   - 読み取り専用の例: `git diff`, `git log`, `git fsck`, `git show`, `git status`
 
+### Rust開発環境
+- registry依存のサプライチェーン攻撃対策として、公開後、設定されたcooldown期間を経過していないversionを新しい依存解決の候補から除外する`min-publish-age`を適用し、そのために固定したNightly Cargoを使用している。
+- 依存追加・更新の具体的なルールと禁止事項は`rust-dependency-policy` skillを正本とする。
+- 依存解決で最新versionが選択されない場合はcooldown、Cargoの問題に遭遇した場合はNightly固有の不具合である可能性を考慮する。
+
 ## 実装
 - 型安全な実装を心がける。
 - 後方互換は一切考慮しなくてよい。必要であれば既存のAPI・データ構造・挙動は整理してよい。

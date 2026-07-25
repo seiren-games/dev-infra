@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+
+set -euo pipefail
+
+wrapper_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly wrapper_dir
+project_root="$(cd -- "$wrapper_dir/../../.." && pwd -P)"
+readonly project_root
+
+if [[ ! -f "$project_root/.envrc" ]]; then
+  echo "rust-analyzer Cargo wrapper requires $project_root/.envrc" >&2
+  exit 1
+fi
+
+# rust-analyzer uses these variables to select this wrapper. Do not leak them
+# into the verified development environment or Cargo would resolve recursively.
+unset CARGO CARGO_HOME
+# Let the project select its compiler instead of inheriting rust-analyzer's sysroot.
+unset RUSTUP_TOOLCHAIN
+
+exec direnv exec "$project_root" cargo "$@"

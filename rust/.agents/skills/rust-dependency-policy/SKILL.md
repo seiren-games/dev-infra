@@ -1,17 +1,18 @@
 ---
 # このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
 name: rust-dependency-policy
-description: Rustの依存追加・更新に関するルールと禁止事項を定義する。依存関係の追加/更新を行うときに参照する。
-metadata:
-  short-description: Rust dependency policy
+description: Rustのregistry依存を追加・更新するときに使用する。publish-age policyを守り、その範囲で最新versionを採用する。
 ---
 
-# Dependency policy (Rust)
+# Rust依存ポリシー
 
-1. 依存追加は `cargo add <crate>` を使い、バージョン指定はしない（最新の安定版を採用する）
-2. 依存の更新は `cargo upgrade`（cargo-edit）で `Cargo.toml` を更新した後、`cargo update` で `Cargo.lock` を更新する
-3. メジャー更新が絡むときは互換性検証のタスクを起票する
+- registry依存には、publish-age policyを満たす最新versionを使う。
+- 依存追加はversionを指定せず `cargo add <crate>`、既存requirement内の更新は `cargo update` を使う。対象を限定する場合は `-p <crate>` を指定する。
+- メジャー更新だけは `cargo add <crate>@<new-major>` でrequirementを更新する。
+- 明示されたversionがcooldown中の場合は変更せず、policyを満たさないことを報告する。
 
 ## 禁止事項
-- `Cargo.toml`に直接バージョン番号を指定して書き込むこと
-- `cargo add <crate-name>@<old-version>` のような形でバージョン指定すること
+
+- `Cargo.toml`の直接編集や、メジャー更新以外のversion指定により古いversionへ固定すること。
+- min-publish-ageを適用しない `cargo upgrade` または `cargo update --breaking` で依存を更新すること。
+- stable Cargo、設定や環境変数のoverrideなどでpublish-age policyを無効化・弱体化すること。

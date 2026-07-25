@@ -20,7 +20,7 @@ keywords = ["@"]
 [[rules.allowlists]]
 description = "Documentation and placeholder domains."
 regexes = [
-  '''(?i)^[A-Z0-9._%+\-]+@(example\.(com|org|net)|invalid|localhost|test)$''',
+  '''(?i)^[A-Z0-9._%+\-]+@(example\.(com|org|net|invalid)|invalid|localhost|test)$''',
 ]
 
 [[rules]]
