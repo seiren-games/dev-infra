@@ -216,6 +216,56 @@ class SyncTests(unittest.TestCase):
                 {new_path: new_files[new_path].version},
             )
 
+    def test_adopting_directory_layout_clears_obsolete_file_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            old_path = PurePosixPath("shared")
+            new_path = PurePosixPath("shared/config.toml")
+            old_files = {old_path: source_file(b"old file\n")}
+            new_files = {new_path: source_file(b"new nested file\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+            (project_root / "shared").write_bytes(b"local change\n")
+            self.assertEqual(sync_module.sync(project_root, new_files), 1)
+
+            (project_root / "shared").unlink()
+            (project_root / "shared").mkdir()
+            (project_root / "shared/config.toml").write_bytes(b"local nested change\n")
+            self.assertEqual(sync_module.sync(project_root, new_files), 1)
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {old_path: old_files[old_path].version},
+            )
+
+            (project_root / "shared/config.toml").write_bytes(
+                new_files[new_path].content
+            )
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {new_path: new_files[new_path].version},
+            )
+
+    def test_adopting_file_layout_clears_obsolete_nested_file_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            old_path = PurePosixPath("shared/config.toml")
+            new_path = PurePosixPath("shared")
+            old_files = {old_path: source_file(b"old nested file\n")}
+            new_files = {new_path: source_file(b"new file\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+            (project_root / "shared/config.toml").write_bytes(b"local change\n")
+            self.assertEqual(sync_module.sync(project_root, new_files), 1)
+
+            (project_root / "shared/config.toml").unlink()
+            (project_root / "shared").rmdir()
+            (project_root / "shared").write_bytes(new_files[new_path].content)
+
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {new_path: new_files[new_path].version},
+            )
+
     def test_empty_directory_with_missing_managed_file_can_be_replaced_with_file(
         self,
     ) -> None:

@@ -269,6 +269,28 @@ def local_file_version(path: Path) -> FileVersion | None:
     )
 
 
+def obsolete_path_is_displaced_by_matching_source(
+    project_root: Path,
+    obsolete_path: PurePosixPath,
+    source_files: Mapping[PurePosixPath, SourceFile],
+) -> bool:
+    for source_path, source_file in source_files.items():
+        if (
+            obsolete_path not in source_path.parents
+            and source_path not in obsolete_path.parents
+        ):
+            continue
+
+        destination = project_root.joinpath(*source_path.parts)
+        try:
+            local_version = local_file_version(destination)
+        except SyncError:
+            continue
+        if local_version == source_file.version:
+            return True
+    return False
+
+
 def ensure_parent_directory(project_root: Path, relative_path: PurePosixPath) -> Path:
     parent = project_root
     for part in relative_path.parts[:-1]:
@@ -374,6 +396,13 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
         try:
             local_version = local_file_version(destination)
         except SyncError as error:
+            if obsolete_path_is_displaced_by_matching_source(
+                project_root,
+                relative_path,
+                source_files,
+            ):
+                next_state.pop(relative_path, None)
+                continue
             print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
             conflict_count += 1
             continue
