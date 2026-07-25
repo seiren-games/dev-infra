@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path, PurePosixPath
 from types import ModuleType
+from unittest import mock
 
 
 def load_sync_module() -> ModuleType:
@@ -35,6 +36,32 @@ def source_file(content: bytes, *, executable: bool = False):
         content=content,
         version=sync_module.file_version(content, executable=executable),
     )
+
+
+class ExecutionEnvironmentTests(unittest.TestCase):
+    def test_native_windows_is_rejected_before_download(self) -> None:
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(sync_module.sys, "platform", "win32"),
+            mock.patch.object(sync_module.sys, "stderr", stderr),
+            mock.patch.object(sync_module, "download_source_archive") as download,
+        ):
+            self.assertEqual(sync_module.main(), 1)
+
+        download.assert_not_called()
+        self.assertIn("Linux（WSL を含む）専用", stderr.getvalue())
+
+    def test_filesystem_without_executable_mode_support_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            with mock.patch.object(Path, "chmod", autospec=True):
+                with self.assertRaisesRegex(
+                    sync_module.SyncError,
+                    "POSIX 実行権限を保持できません",
+                ):
+                    sync_module.ensure_executable_mode_support(project_root)
+
+            self.assertEqual(list(project_root.iterdir()), [])
 
 
 class SyncTests(unittest.TestCase):

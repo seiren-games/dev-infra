@@ -40,6 +40,44 @@ class SyncError(Exception):
     pass
 
 
+def ensure_linux_platform() -> None:
+    if sys.platform != "linux":
+        raise SyncError("この同期スクリプトは Linux（WSL を含む）専用です")
+
+
+def ensure_executable_mode_support(project_root: Path) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=project_root,
+            prefix=".dev-infra-rust-sync-mode-check.",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+
+        temporary_path.chmod(0o644)
+        if temporary_path.stat().st_mode & stat.S_IXUSR:
+            raise SyncError(
+                "同期先ファイルシステムが POSIX 実行権限を保持できません"
+            )
+
+        temporary_path.chmod(0o755)
+        if not temporary_path.stat().st_mode & stat.S_IXUSR:
+            raise SyncError(
+                "同期先ファイルシステムが POSIX 実行権限を保持できません"
+            )
+    except OSError as error:
+        raise SyncError(
+            f"同期先ファイルシステムの実行権限を検証できません: {error}"
+        ) from error
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
 @dataclass(frozen=True)
 class FileVersion:
     sha256: str
@@ -420,6 +458,9 @@ def save_state(
 
 
 def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -> int:
+    ensure_linux_platform()
+    ensure_executable_mode_support(project_root)
+
     previous_state = load_state(project_root)
     next_state = dict(previous_state.files)
     conflict_count = 0
@@ -509,6 +550,7 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
 def main() -> int:
     project_root = Path(__file__).resolve().parent
     try:
+        ensure_linux_platform()
         archive = download_source_archive()
         source_files = read_source_files(archive)
         return sync(project_root, source_files)

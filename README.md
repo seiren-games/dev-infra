@@ -17,6 +17,11 @@ Clippy、rustfmt は各プロジェクトが選択した toolchain をそのま�
 python3 sync.py
 ```
 
+このスクリプトの対応実行環境は、WSL を含む Linux のみです。ネイティブ Windows
+など、その他の OS では実行できません。同期先には POSIX 実行権限を保持できる
+ファイルシステムが必要であり、同期開始時に検証します。WSL では Linux
+ファイルシステム上（`/home/...`）へのリポジトリ配置を推奨します。
+
 スクリプトは `dev-infra` の `main` ブランチから、`rust/` 以下およびルートの
 `.editorconfig` と `.gitattributes` を取得します。先頭 5 行以内に管理元ヘッダーが
 あるファイルを、Rust リポジトリの同じ相対パスへ同期します。`rust/` 自体は同期先の
