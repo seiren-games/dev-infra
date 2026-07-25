@@ -363,6 +363,40 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
     next_state = dict(previous_state.files)
     conflict_count = 0
 
+    # Remove obsolete managed paths first so clean file-to-directory and
+    # directory-to-file layout changes can be completed in this run.
+    removed_paths = previous_state.files.keys() - source_files.keys()
+    for relative_path in sorted(removed_paths):
+        destination = project_root.joinpath(*relative_path.parts)
+        try:
+            local_version = local_file_version(destination)
+        except SyncError as error:
+            print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
+            conflict_count += 1
+            continue
+
+        previous_version = previous_state.files[relative_path]
+        if local_version is None:
+            next_state.pop(relative_path, None)
+            continue
+        if local_version != previous_version:
+            print(
+                f"エラー  {relative_path.as_posix()}: "
+                "利用側で変更されているため配布終了ファイルを削除しません",
+                file=sys.stderr,
+            )
+            conflict_count += 1
+            continue
+
+        try:
+            delete_file(project_root, relative_path)
+        except SyncError as error:
+            print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
+            conflict_count += 1
+            continue
+        next_state.pop(relative_path, None)
+        print(f"削除  {relative_path.as_posix()}")
+
     for relative_path, source_file in sorted(source_files.items()):
         destination = project_root.joinpath(*relative_path.parts)
         try:
@@ -395,38 +429,6 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
             continue
         next_state[relative_path] = source_file.version
         print(f"{action}  {relative_path.as_posix()}")
-
-    removed_paths = previous_state.files.keys() - source_files.keys()
-    for relative_path in sorted(removed_paths):
-        destination = project_root.joinpath(*relative_path.parts)
-        try:
-            local_version = local_file_version(destination)
-        except SyncError as error:
-            print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
-            conflict_count += 1
-            continue
-
-        previous_version = previous_state.files[relative_path]
-        if local_version is None:
-            next_state.pop(relative_path, None)
-            continue
-        if local_version != previous_version:
-            print(
-                f"エラー  {relative_path.as_posix()}: "
-                "利用側で変更されているため配布終了ファイルを削除しません",
-                file=sys.stderr,
-            )
-            conflict_count += 1
-            continue
-
-        try:
-            delete_file(project_root, relative_path)
-        except SyncError as error:
-            print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
-            conflict_count += 1
-            continue
-        next_state.pop(relative_path, None)
-        print(f"削除  {relative_path.as_posix()}")
 
     save_state(project_root, next_state)
     if conflict_count:

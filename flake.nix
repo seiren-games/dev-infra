@@ -108,7 +108,7 @@
               }
               ''
                 DEV_INFRA_TEST_ROOT=${./.} \
-                  python3 -m unittest discover -s ${./tests} -p 'test_*.py' -v
+                  python3 -B -m unittest discover -s ${./tests} -p 'test_*.py' -v
                 touch "$out"
               '';
 

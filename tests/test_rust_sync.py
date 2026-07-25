@@ -179,6 +179,43 @@ class SyncTests(unittest.TestCase):
             )
             self.assertIn(removed_path, sync_module.load_state(project_root).files)
 
+    def test_clean_file_can_be_replaced_with_directory_in_one_sync(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            old_path = PurePosixPath("shared")
+            new_path = PurePosixPath("shared/config.toml")
+            old_files = {old_path: source_file(b"old file\n")}
+            new_files = {new_path: source_file(b"new nested file\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertTrue((project_root / "shared").is_dir())
+            self.assertEqual(
+                (project_root / "shared/config.toml").read_bytes(),
+                b"new nested file\n",
+            )
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {new_path: new_files[new_path].version},
+            )
+
+    def test_clean_directory_can_be_replaced_with_file_in_one_sync(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            old_path = PurePosixPath("shared/config.toml")
+            new_path = PurePosixPath("shared")
+            old_files = {old_path: source_file(b"old nested file\n")}
+            new_files = {new_path: source_file(b"new file\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+
+            self.assertEqual(sync_module.sync(project_root, new_files), 0)
+            self.assertTrue((project_root / "shared").is_file())
+            self.assertEqual((project_root / "shared").read_bytes(), b"new file\n")
+            self.assertEqual(
+                sync_module.load_state(project_root).files,
+                {new_path: new_files[new_path].version},
+            )
+
     def test_executable_bit_change_uses_the_same_conflict_rules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
