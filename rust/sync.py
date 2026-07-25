@@ -249,7 +249,31 @@ def serialize_state(files: Mapping[PurePosixPath, FileVersion]) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode()
 
 
-def local_file_version(path: Path) -> FileVersion | None:
+def validate_existing_parent_directories(
+    project_root: Path,
+    relative_path: PurePosixPath,
+) -> Path:
+    parent = project_root
+    for part in relative_path.parts[:-1]:
+        parent /= part
+        try:
+            parent_stat = parent.lstat()
+        except FileNotFoundError:
+            return project_root.joinpath(*relative_path.parts)
+        except OSError as error:
+            raise SyncError(
+                f"ディレクトリの状態を確認できません: {parent}: {error}"
+            ) from error
+        if not stat.S_ISDIR(parent_stat.st_mode):
+            raise SyncError(f"同期先の親がディレクトリではありません: {parent}")
+    return parent / relative_path.name
+
+
+def local_file_version(
+    project_root: Path,
+    relative_path: PurePosixPath,
+) -> FileVersion | None:
+    path = validate_existing_parent_directories(project_root, relative_path)
     try:
         file_stat = path.lstat()
     except FileNotFoundError:
@@ -281,9 +305,8 @@ def obsolete_path_is_displaced_by_matching_source(
         ):
             continue
 
-        destination = project_root.joinpath(*source_path.parts)
         try:
-            local_version = local_file_version(destination)
+            local_version = local_file_version(project_root, source_path)
         except SyncError:
             continue
         if local_version == source_file.version:
@@ -354,7 +377,7 @@ def prune_empty_parent_directories(project_root: Path, parent: Path) -> None:
 
 
 def delete_file(project_root: Path, relative_path: PurePosixPath) -> None:
-    destination = project_root.joinpath(*relative_path.parts)
+    destination = validate_existing_parent_directories(project_root, relative_path)
     try:
         destination.unlink()
     except OSError as error:
@@ -394,7 +417,7 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
     for relative_path in sorted(removed_paths):
         destination = project_root.joinpath(*relative_path.parts)
         try:
-            local_version = local_file_version(destination)
+            local_version = local_file_version(project_root, relative_path)
         except SyncError as error:
             if obsolete_path_is_displaced_by_matching_source(
                 project_root,
@@ -433,7 +456,7 @@ def sync(project_root: Path, source_files: Mapping[PurePosixPath, SourceFile]) -
     for relative_path, source_file in sorted(source_files.items()):
         destination = project_root.joinpath(*relative_path.parts)
         try:
-            local_version = local_file_version(destination)
+            local_version = local_file_version(project_root, relative_path)
         except SyncError as error:
             print(f"エラー  {relative_path.as_posix()}: {error}", file=sys.stderr)
             conflict_count += 1

@@ -179,6 +179,33 @@ class SyncTests(unittest.TestCase):
             )
             self.assertIn(removed_path, sync_module.load_state(project_root).files)
 
+    def test_removed_file_below_symlinked_parent_is_not_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            project_root = temporary_root / "project"
+            external_root = temporary_root / "external"
+            project_root.mkdir()
+            external_root.mkdir()
+            removed_path = PurePosixPath(".cargo/config.toml")
+            old_files = {removed_path: source_file(b"managed config\n")}
+            self.assertEqual(sync_module.sync(project_root, old_files), 0)
+
+            (project_root / ".cargo/config.toml").unlink()
+            (project_root / ".cargo").rmdir()
+            external_file = external_root / "config.toml"
+            external_file.write_bytes(old_files[removed_path].content)
+            (project_root / ".cargo").symlink_to(
+                external_root,
+                target_is_directory=True,
+            )
+
+            self.assertEqual(sync_module.sync(project_root, {}), 1)
+            self.assertEqual(
+                external_file.read_bytes(),
+                old_files[removed_path].content,
+            )
+            self.assertIn(removed_path, sync_module.load_state(project_root).files)
+
     def test_clean_file_can_be_replaced_with_directory_in_one_sync(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
