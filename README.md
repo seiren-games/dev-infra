@@ -10,8 +10,8 @@ Clippy、rustfmt は各プロジェクトが選択した toolchain をそのま�
 ### 共有ファイルの同期
 
 初回導入時は [`rust/sync.py`](rust/sync.py) を Rust リポジトリのルートへ同じ
-`sync.py` という名前でコピーし、Python 3.13 以降で実行します。以後はこのスクリプト
-自身も同期対象です。
+`sync.py` という名前でコピーし、Python 3.13 以降と `nix` command が利用できる
+Linux 環境で実行します。以後はこのスクリプト自身も同期対象です。
 
 ```sh
 python3 sync.py
@@ -26,7 +26,9 @@ python3 sync.py
 `.editorconfig` と `.gitattributes` を取得します。先頭 5 行以内に管理元ヘッダーが
 あるファイルを、Rust リポジトリの同じ相対パスへ同期します。`rust/` 自体は同期先の
 パスに含めません。未配置のファイルは作成し、前回同期後に変更されていない旧版は更新
-します。最新版と一致するファイルは書き換えません。
+します。最新版と一致するファイルは書き換えません。共有ファイルの同期に成功した後、
+`nix flake update dev-infra` を実行して `flake.lock` の `dev-infra` input も更新します。
+同期エラーがある場合は input を更新しません。
 
 同期結果はルートの `.dev-infra-rust-sync.json` に記録されます。この状態ファイルは
 共有ファイルと一緒にリポジトリへ commit してください。利用側で内容または実行権限を
@@ -40,7 +42,14 @@ python3 sync.py
 
 各 Rust リポジトリでは、`inputs.dev-infra.lib.rustDevEnvironmentModule` を評価し、
 module が提供する dev shell をそのリポジトリの default dev shell として公開します。
-`dev-infra` input は flake として読み込み、`flake = false` は設定しません。
+`dev-infra` input は次のように `main` ブランチを明示して flake として読み込み、
+`flake = false` は設定しません。具体的な commit は自動生成される `flake.lock` に
+記録し、`flake.nix` へ commit SHA を記述しません。
+
+```nix
+dev-infra.url = "github:seiren-games/dev-infra/main";
+```
+
 次の部分を各 system の flake output に組み込みます。
 
 ```nix

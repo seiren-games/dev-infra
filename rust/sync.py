@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -19,6 +20,7 @@ from typing import Final, Mapping
 
 SOURCE_REPOSITORY: Final = "seiren-games/dev-infra"
 SOURCE_REF: Final = "main"
+DEV_INFRA_FLAKE_INPUT: Final = "dev-infra"
 RUST_SOURCE_DIRECTORY: Final = PurePosixPath("rust")
 ROOT_SOURCE_FILES: Final = (
     PurePosixPath(".editorconfig"),
@@ -28,6 +30,7 @@ SOURCE_ARCHIVE_URL: Final = (
     f"https://codeload.github.com/{SOURCE_REPOSITORY}/tar.gz/refs/heads/{SOURCE_REF}"
 )
 STATE_FILE_NAME: Final = ".dev-infra-rust-sync.json"
+FLAKE_LOCK_FILE_NAME: Final = "flake.lock"
 STATE_SCHEMA_VERSION: Final = 2
 MAX_ARCHIVE_SIZE: Final = 20 * 1024 * 1024
 MANAGED_NOTICE: Final = (
@@ -166,6 +169,83 @@ def download_source_archive() -> bytes:
             f"取得元アーカイブが上限 {MAX_ARCHIVE_SIZE} bytes を超えています"
         )
     return archive
+
+
+def read_locked_dev_infra_revision(project_root: Path) -> str:
+    lock_path = project_root / FLAKE_LOCK_FILE_NAME
+    try:
+        value = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} を読み取れません: {error}") from error
+
+    if not isinstance(value, dict):
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} の形式が不正です")
+    nodes = value.get("nodes")
+    root_name = value.get("root")
+    if not isinstance(nodes, dict) or not isinstance(root_name, str):
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} の形式が不正です")
+
+    root_node = nodes.get(root_name)
+    if not isinstance(root_node, dict):
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} の root node が不正です")
+    root_inputs = root_node.get("inputs")
+    if not isinstance(root_inputs, dict):
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} の root inputs が不正です")
+
+    dev_infra_node_name = root_inputs.get(DEV_INFRA_FLAKE_INPUT)
+    if not isinstance(dev_infra_node_name, str):
+        raise SyncError(
+            f"{FLAKE_LOCK_FILE_NAME} に root input "
+            f"{DEV_INFRA_FLAKE_INPUT!r} がありません"
+        )
+    dev_infra_node = nodes.get(dev_infra_node_name)
+    if not isinstance(dev_infra_node, dict):
+        raise SyncError(
+            f"{FLAKE_LOCK_FILE_NAME} の {DEV_INFRA_FLAKE_INPUT} node が不正です"
+        )
+
+    original = dev_infra_node.get("original")
+    if not isinstance(original, dict) or (
+        original.get("type"),
+        original.get("owner"),
+        original.get("repo"),
+        original.get("ref"),
+    ) != ("github", "seiren-games", "dev-infra", SOURCE_REF):
+        raise SyncError(
+            f"{DEV_INFRA_FLAKE_INPUT} input は "
+            f"github:{SOURCE_REPOSITORY}/{SOURCE_REF} を参照する必要があります"
+        )
+
+    locked = dev_infra_node.get("locked")
+    if not isinstance(locked, dict):
+        raise SyncError(
+            f"{FLAKE_LOCK_FILE_NAME} の {DEV_INFRA_FLAKE_INPUT}.locked が不正です"
+        )
+    revision = locked.get("rev")
+    if (
+        not isinstance(revision, str)
+        or len(revision) != 40
+        or any(character not in "0123456789abcdef" for character in revision)
+    ):
+        raise SyncError(
+            f"{FLAKE_LOCK_FILE_NAME} の {DEV_INFRA_FLAKE_INPUT} revision が不正です"
+        )
+    return revision
+
+
+def update_dev_infra_input(project_root: Path) -> None:
+    command = ["nix", "flake", "update", DEV_INFRA_FLAKE_INPUT]
+    try:
+        result = subprocess.run(command, cwd=project_root, check=False)
+    except OSError as error:
+        raise SyncError(f"dev-infra input の更新を開始できません: {error}") from error
+    if result.returncode != 0:
+        raise SyncError(
+            f"dev-infra input の更新に失敗しました（status {result.returncode}）"
+        )
+
+    revision = read_locked_dev_infra_revision(project_root)
+    print(f"更新  dev-infra input ({revision})")
 
 
 def read_source_files(archive: bytes) -> dict[PurePosixPath, SourceFile]:
@@ -553,7 +633,11 @@ def main() -> int:
         ensure_linux_platform()
         archive = download_source_archive()
         source_files = read_source_files(archive)
-        return sync(project_root, source_files)
+        sync_status = sync(project_root, source_files)
+        if sync_status != 0:
+            return sync_status
+        update_dev_infra_input(project_root)
+        return 0
     except SyncError as error:
         print(f"同期エラー: {error}", file=sys.stderr)
         return 1

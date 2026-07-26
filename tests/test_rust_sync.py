@@ -64,6 +64,127 @@ class ExecutionEnvironmentTests(unittest.TestCase):
             self.assertEqual(list(project_root.iterdir()), [])
 
 
+class FlakeInputTests(unittest.TestCase):
+    REVISION = "0123456789abcdef0123456789abcdef01234567"
+
+    def write_lock(
+        self,
+        project_root: Path,
+        *,
+        original: dict[str, str] | None = None,
+    ) -> None:
+        dev_infra_original = original or {
+            "type": "github",
+            "owner": "seiren-games",
+            "repo": "dev-infra",
+            "ref": "main",
+        }
+        lock = {
+            "nodes": {
+                "dev-infra": {
+                    "locked": {
+                        "type": "github",
+                        "owner": "seiren-games",
+                        "repo": "dev-infra",
+                        "rev": self.REVISION,
+                    },
+                    "original": dev_infra_original,
+                },
+                "root": {"inputs": {"dev-infra": "dev-infra"}},
+            },
+            "root": "root",
+            "version": 7,
+        }
+        (project_root / sync_module.FLAKE_LOCK_FILE_NAME).write_text(
+            json.dumps(lock),
+            encoding="utf-8",
+        )
+
+    def test_update_targets_only_dev_infra_and_accepts_explicit_main(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.write_lock(project_root)
+            completed = mock.Mock(returncode=0)
+
+            with mock.patch.object(
+                sync_module.subprocess,
+                "run",
+                return_value=completed,
+            ) as run:
+                sync_module.update_dev_infra_input(project_root)
+
+            run.assert_called_once_with(
+                ["nix", "flake", "update", "dev-infra"],
+                cwd=project_root,
+                check=False,
+            )
+            self.assertEqual(
+                sync_module.read_locked_dev_infra_revision(project_root),
+                self.REVISION,
+            )
+
+    def test_update_rejects_commit_pinned_input(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.write_lock(
+                project_root,
+                original={
+                    "type": "github",
+                    "owner": "seiren-games",
+                    "repo": "dev-infra",
+                    "rev": self.REVISION,
+                },
+            )
+
+            with (
+                mock.patch.object(
+                    sync_module.subprocess,
+                    "run",
+                    return_value=mock.Mock(returncode=0),
+                ),
+                self.assertRaisesRegex(
+                    sync_module.SyncError,
+                    "github:seiren-games/dev-infra/main",
+                ),
+            ):
+                sync_module.update_dev_infra_input(project_root)
+
+    def test_update_propagates_nix_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            with (
+                mock.patch.object(
+                    sync_module.subprocess,
+                    "run",
+                    return_value=mock.Mock(returncode=42),
+                ),
+                self.assertRaisesRegex(sync_module.SyncError, "status 42"),
+            ):
+                sync_module.update_dev_infra_input(project_root)
+
+    def test_main_does_not_update_input_after_sync_conflict(self) -> None:
+        with (
+            mock.patch.object(sync_module, "download_source_archive"),
+            mock.patch.object(sync_module, "read_source_files"),
+            mock.patch.object(sync_module, "sync", return_value=1),
+            mock.patch.object(sync_module, "update_dev_infra_input") as update,
+        ):
+            self.assertEqual(sync_module.main(), 1)
+
+        update.assert_not_called()
+
+    def test_main_updates_input_after_successful_sync(self) -> None:
+        with (
+            mock.patch.object(sync_module, "download_source_archive"),
+            mock.patch.object(sync_module, "read_source_files"),
+            mock.patch.object(sync_module, "sync", return_value=0),
+            mock.patch.object(sync_module, "update_dev_infra_input") as update,
+        ):
+            self.assertEqual(sync_module.main(), 0)
+
+        update.assert_called_once_with(Path(sync_module.__file__).resolve().parent)
+
+
 class SyncTests(unittest.TestCase):
     def test_initial_sync_creates_missing_files_and_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
