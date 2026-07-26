@@ -22,8 +22,8 @@ description: RustプロジェクトまたはCargo workspaceを新規作成・初
 
 ```toml
 [lints.clippy]
-allow_attributes = "warn"
-allow_attributes_without_reason = "warn"
+allow_attributes = "forbid"
+allow_attributes_without_reason = "forbid"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -37,8 +37,8 @@ workspace rootの`Cargo.toml`へ共通設定を一度だけ定義する。`resol
 
 ```toml
 [workspace.lints.clippy]
-allow_attributes = "warn"
-allow_attributes_without_reason = "warn"
+allow_attributes = "forbid"
+allow_attributes_without_reason = "forbid"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -58,6 +58,6 @@ workspace = true
 - resolver versionは記憶や固定値に頼らず、Cargo公式ドキュメントの検索結果から決定する。
 - resolverを省略しない。editionからの暗黙選択に依存しない。
 - `unsafe_code`を弱めない。
-- `allow_attributes`または`allow_attributes_without_reason`を`allow`にしない。
+- `allow_attributes`または`allow_attributes_without_reason`を`forbid`から弱めない。
 - workspace memberへ共通lintを重複定義しない。lint policyは`[workspace.lints]`へ集約する。
 - 対象Cargoがこれらの設定を解釈できない場合、古いresolverやlint未設定へfallbackせず、toolchainの非対応として報告する。
