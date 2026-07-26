@@ -234,6 +234,14 @@ def read_locked_dev_infra_revision(project_root: Path) -> str:
 
 
 def update_dev_infra_input(project_root: Path) -> None:
+    lock_path = project_root / FLAKE_LOCK_FILE_NAME
+    try:
+        lock_before = lock_path.read_bytes()
+    except FileNotFoundError:
+        lock_before = None
+    except OSError as error:
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} を読み取れません: {error}") from error
+
     command = ["nix", "flake", "update", DEV_INFRA_FLAKE_INPUT]
     try:
         result = subprocess.run(command, cwd=project_root, check=False)
@@ -245,7 +253,15 @@ def update_dev_infra_input(project_root: Path) -> None:
         )
 
     revision = read_locked_dev_infra_revision(project_root)
-    print(f"更新  dev-infra input ({revision})")
+    try:
+        lock_after = lock_path.read_bytes()
+    except OSError as error:
+        raise SyncError(f"{FLAKE_LOCK_FILE_NAME} を読み取れません: {error}") from error
+
+    if lock_before == lock_after:
+        print(f"確認  dev-infra input ({revision}, 変更なし)")
+    else:
+        print(f"更新  dev-infra input ({revision})")
 
 
 def read_source_files(archive: bytes) -> dict[PurePosixPath, SourceFile]:

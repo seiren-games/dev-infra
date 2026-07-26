@@ -72,6 +72,7 @@ class FlakeInputTests(unittest.TestCase):
         project_root: Path,
         *,
         original: dict[str, str] | None = None,
+        revision: str = REVISION,
     ) -> None:
         dev_infra_original = original or {
             "type": "github",
@@ -86,7 +87,7 @@ class FlakeInputTests(unittest.TestCase):
                         "type": "github",
                         "owner": "seiren-games",
                         "repo": "dev-infra",
-                        "rev": self.REVISION,
+                        "rev": revision,
                     },
                     "original": dev_infra_original,
                 },
@@ -105,12 +106,16 @@ class FlakeInputTests(unittest.TestCase):
             project_root = Path(temporary_directory)
             self.write_lock(project_root)
             completed = mock.Mock(returncode=0)
+            stdout = io.StringIO()
 
-            with mock.patch.object(
-                sync_module.subprocess,
-                "run",
-                return_value=completed,
-            ) as run:
+            with (
+                mock.patch.object(
+                    sync_module.subprocess,
+                    "run",
+                    return_value=completed,
+                ) as run,
+                mock.patch.object(sync_module.sys, "stdout", stdout),
+            ):
                 sync_module.update_dev_infra_input(project_root)
 
             run.assert_called_once_with(
@@ -121,6 +126,36 @@ class FlakeInputTests(unittest.TestCase):
             self.assertEqual(
                 sync_module.read_locked_dev_infra_revision(project_root),
                 self.REVISION,
+            )
+            self.assertEqual(
+                stdout.getvalue(),
+                f"確認  dev-infra input ({self.REVISION}, 変更なし)\n",
+            )
+
+    def test_update_reports_changed_lock(self) -> None:
+        updated_revision = "89abcdef0123456789abcdef0123456789abcdef"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            self.write_lock(project_root)
+            stdout = io.StringIO()
+
+            def update_lock(*_args, **_kwargs):
+                self.write_lock(project_root, revision=updated_revision)
+                return mock.Mock(returncode=0)
+
+            with (
+                mock.patch.object(
+                    sync_module.subprocess,
+                    "run",
+                    side_effect=update_lock,
+                ),
+                mock.patch.object(sync_module.sys, "stdout", stdout),
+            ):
+                sync_module.update_dev_infra_input(project_root)
+
+            self.assertEqual(
+                stdout.getvalue(),
+                f"更新  dev-infra input ({updated_revision})\n",
             )
 
     def test_update_rejects_commit_pinned_input(self) -> None:
