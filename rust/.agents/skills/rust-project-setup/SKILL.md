@@ -10,15 +10,15 @@ description: RustプロジェクトまたはCargo workspaceを新規作成・初
 
 1. 要求からbinary crate、library crate、単一package、workspaceのどれを作るか判断する。
 2. crateの作成には`cargo new --vcs none`、既存directoryの初期化には`cargo init --vcs none`を使う。Git初期化は依頼された場合だけ別途行う。
-3. Cargo公式ドキュメントを検索し、その時点で最新のRust editionとresolver versionを確認する。
-4. project構成に応じ、確認したeditionとresolver、以下のlint設定を正本として`Cargo.toml`へ追加する。
+3. Cargo公式ドキュメントを検索し、その時点で最新のresolver versionを確認する。
+4. project構成に応じ、確認したresolverと以下のlint設定を正本として`Cargo.toml`へ追加する。
 5. 既存のpackage metadata、target、feature、dependencyなど無関係な設定は維持する。
 6. `cargo metadata --no-deps --format-version 1`を実行し、manifestを検証する。
 7. sourceが存在する各packageでlintが有効になることを`cargo clippy --workspace --all-targets --all-features -- -D warnings`で検証する。
 
 ## 単一package
 
-`edition`と`resolver`を`[package]`へ置き、それぞれ検索で確認した最新versionを設定する。lintをpackage自身に定義する。
+`resolver`を`[package]`へ置き、検索で確認した最新versionを設定する。lintをpackage自身に定義する。
 
 ```toml
 [lints.clippy]
@@ -29,7 +29,7 @@ allow_attributes_without_reason = "warn"
 unsafe_code = "forbid"
 ```
 
-既存の`[package]` tableは作り直さず、`edition`と`resolver`を同じtableへ追加する。
+既存の`[package]` tableは作り直さず、`resolver`だけを同じtableへ追加する。
 
 ## Workspace
 
@@ -55,7 +55,7 @@ workspace = true
 
 ## 制約
 
-- editionとresolver versionは記憶や固定値に頼らず、Cargo公式ドキュメントの検索結果から決定する。
+- resolver versionは記憶や固定値に頼らず、Cargo公式ドキュメントの検索結果から決定する。
 - resolverを省略しない。editionからの暗黙選択に依存しない。
 - `unsafe_code`を弱めない。
 - `allow_attributes`または`allow_attributes_without_reason`を`allow`にしない。
