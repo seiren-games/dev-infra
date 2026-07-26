@@ -9,7 +9,7 @@ description: RustプロジェクトまたはCargo workspaceを新規作成・初
 ## 作成手順
 
 1. 要求からbinary crate、library crate、単一package、workspaceのどれを作るか判断する。
-2. crateの作成には`cargo new --vcs none`、既存directoryの初期化には`cargo init --vcs none`を使う。Git初期化は依頼された場合だけ別途行う。
+2. binary crateには`cargo new --bin --vcs none`または`cargo init --bin --vcs none`、library crateには`cargo new --lib --vcs none`または`cargo init --lib --vcs none`を使う。Git初期化は依頼された場合だけ別途行う。
 3. Cargo公式ドキュメントを検索し、その時点で最新のresolver versionを確認する。
 4. project構成に応じ、確認したresolverと以下のlint設定を正本として`Cargo.toml`へ追加する。
 5. 既存のpackage metadata、target、feature、dependencyなど無関係な設定は維持する。
