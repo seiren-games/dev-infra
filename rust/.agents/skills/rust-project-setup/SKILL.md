@@ -13,8 +13,9 @@ description: RustプロジェクトまたはCargo workspaceを新規作成・初
 3. Cargo公式ドキュメントを検索し、その時点で最新のresolver versionを確認する。
 4. project構成に応じ、確認したresolverと以下のlint設定を正本として`Cargo.toml`へ追加する。
 5. 既存のpackage metadata、target、feature、dependencyなど無関係な設定は維持する。
-6. `cargo metadata --no-deps --format-version 1`を実行し、manifestを検証する。
-7. sourceが存在する各packageでlintが有効になることを`cargo clippy --workspace --all-targets --all-features -- -D warnings`で検証する。
+6. `cargo metadata --no-deps --format-version 1`を実行してmanifestを検証し、`workspace_members`に含まれる全packageの`manifest_path`を特定する。
+7. workspaceでは、特定した全member（root packageを含む）の`Cargo.toml`を検査し、`[lints] workspace = true`が明示されていることを確認する。欠落または`false`をエラーとし、Clippyの成否を継承確認の代用にしない。
+8. sourceが存在する各packageでlint違反がないことを`cargo clippy --workspace --all-targets --all-features -- -D warnings`で検証する。
 
 ## 単一package
 
