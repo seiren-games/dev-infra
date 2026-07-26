@@ -1,7 +1,7 @@
 ---
 # このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
 name: rust-project-setup
-description: RustプロジェクトまたはCargo workspaceを新規作成・初期化し、Cargo.tomlにresolver 3、共有Clippy lint、unsafe_code禁止を設定するときに使用する。cargo new、cargo init、新規crate/workspace作成、workspace member追加時に適用する。
+description: RustプロジェクトまたはCargo workspaceを新規作成・初期化し、共通のCargo manifestポリシーを適用するときに使用する。cargo new、cargo init、新規crate/workspace作成、workspace member追加時に適用する。
 ---
 
 # Rustプロジェクト初期設定
