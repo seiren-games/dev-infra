@@ -248,6 +248,18 @@
                 touch "$out"
               '';
         }
+        // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          rust-shared-files-sync =
+            pkgs.runCommand "rust-shared-files-sync-check"
+              {
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                DEV_INFRA_TEST_ROOT=${./.} \
+                  python3 -B -m unittest discover -s ${./tests} -p 'test_*.py' -v
+                touch "$out"
+              '';
+        }
       );
 
       devShells = forAllSystems (
