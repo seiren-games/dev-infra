@@ -85,7 +85,7 @@ jobs:
             echo "resolver.incompatible-publish-age must use Cargo's default deny policy" >&2
             exit 1
           fi
-          if env | grep -F '^CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE='; then
+          if env | grep -E '^CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE='; then
             echo "CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE must not override the default deny policy" >&2
             exit 1
           fi

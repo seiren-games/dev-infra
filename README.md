@@ -157,7 +157,8 @@ stable Cargo は publish-age policy を適用しないため、Cargo コマン�
 Crossが事前に取得するmetadataにはdev shellの固定Nightly Cargoが使われるため、そこで
 依存解決が発生してもpublish-age policyが適用されます。container内ではRustup toolchainの
 Cargoを使いますが、共有VS Code taskは `--locked` を渡します。依存の追加・更新とlock fileの
-生成は、引き続きdev shellの固定Nightly Cargoで明示的に行います。
+生成は、引き続きdev shellの固定Nightly Cargoで事前に行います。`Cargo.lock` がない状態で
+Crossを実行するとhost側のmetadata取得時に生成され得るため、先に生成してcommitします。
 
 Windows GNU targetには、現在のRust toolchainと互換性を確認した公式Cross imageを
 immutable digestで固定します。必要な場合は
