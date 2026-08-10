@@ -2,7 +2,7 @@
   description = "Development infrastructure shared files";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs =
@@ -10,10 +10,11 @@
     let
       rustDevEnvironmentModule = import ./rust/nix/modules/dev-environment.nix;
 
+      # nixpkgs-unstable no longer supports x86_64-darwin. Consumers using a
+      # compatible nixpkgs revision can still evaluate the shared Rust module.
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
 
