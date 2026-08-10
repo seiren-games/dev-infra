@@ -79,13 +79,41 @@ let
       ];
     };
   };
+
+  # Backport cross-rs/cross#1683 until a release newer than 0.2.5 is available.
+  cargoCross = pkgs.cargo-cross.overrideAttrs (previous: {
+    patches = (previous.patches or [ ]) ++ [
+      ../patches/cargo-cross-rustup-toolchain-list.patch
+    ];
+  });
+
+  rustupCommand = pkgs.writeShellApplication {
+    name = "rustup";
+    text = ''
+      exec ${lib.getExe pkgs.rustup} "$@"
+    '';
+  };
+
+  crossWrapper = pkgs.writeShellApplication {
+    name = "cross";
+    # Expose only the rustup command. Adding pkgs.rustup directly would also
+    # shadow the pinned Cargo with its Cargo proxy.
+    runtimeInputs = [ rustupCommand ];
+    text = ''
+      RUSTC="$(rustup which rustc)"
+      export RUSTC
+
+      exec ${lib.getExe cargoCross} "$@"
+    '';
+  };
 in
 {
   options.devInfra.rust.devEnvironment = {
     packages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      default = with pkgs; [
-        cargo-cross
+      default = [
+        (lib.hiPrio crossWrapper)
+        cargoCross
       ];
       description = ''
         Additional tool packages exposed by the shared Rust development environment.
@@ -97,6 +125,14 @@ in
       readOnly = true;
       description = ''
         Pinned nightly Cargo required to enforce the shared dependency publish-age policy.
+      '';
+    };
+
+    crossPackage = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      description = ''
+        Cross wrapper that selects the active Rustup toolchain before invoking Cross.
       '';
     };
 
@@ -119,6 +155,7 @@ in
 
   config.devInfra.rust.devEnvironment = {
     cargoPackage = nightlyCargo;
+    crossPackage = crossWrapper;
 
     package = pkgs.buildEnv {
       name = "dev-infra-rust-dev-environment";

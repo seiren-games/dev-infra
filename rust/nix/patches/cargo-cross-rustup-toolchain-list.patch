@@ -1,0 +1,15 @@
+diff --git a/src/rustup.rs b/src/rustup.rs
+index 4009f15..6ae5907 100644
+--- a/src/rustup.rs
++++ b/src/rustup.rs
+@@ -52,9 +52,4 @@ pub fn installed_toolchains(msg_info: &mut MessageInfo) -> Result<Vec<String>> {
+     Ok(out
+         .lines()
+-        .map(|l| {
+-            l.replace(" (default)", "")
+-                .replace(" (override)", "")
+-                .trim()
+-                .to_owned()
+-        })
++        .map(|l| l.split_once(" (").map_or(l.trim(), |(name, _)| name).to_owned())
+         .collect())

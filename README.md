@@ -147,13 +147,25 @@ cargo -Z help | grep -F -- "-Z min-publish-age"
 stable Cargo は publish-age policy を適用しないため、Cargo コマンド、Cargo を呼ぶ
 エディタ、および自動化はすべて dev shell 内で実行します。
 
+### Crossによるクロスビルド
+
+共有dev shellの `cross` は、Nix版rustcのsysrootをRustup toolchain名として扱わないよう、
+プロジェクトで選択されたRustup toolchainの `rustc` をCrossへ明示するwrapperです。
+各プロジェクトではexact versionの `rust-toolchain.toml` を配置し、必要なtargetも同じ
+ファイルで宣言します。
+
+Crossが事前に取得するmetadataにはdev shellの固定Nightly Cargoが使われるため、そこで
+依存解決が発生してもpublish-age policyが適用されます。container内ではRustup toolchainの
+Cargoを使いますが、共有VS Code taskは `--locked` を渡します。依存の追加・更新とlock fileの
+生成は、引き続きdev shellの固定Nightly Cargoで明示的に行います。
+
 ### 依存パッケージの cooldown
 
 共有する `rust/.cargo/config.toml` は、すべての対応 registry に対して公開から
 7 日未満のバージョンを新しい依存解決の候補から除外します。dev shell 内では
-`cargo add`、`cargo update`、build、test など、すべての Cargo コマンドに固定した
-nightly Cargo を使うため、どのコマンドから依存解決が発生してもこのポリシーが
-適用されます。
+`cargo add`、`cargo update`、build、test など、dev shellで直接実行するCargoコマンドには
+固定したnightly Cargoを使うため、どのコマンドから依存解決が発生してもこのポリシーが
+適用されます。Crossによるbuildでも、host側のmetadata取得には同じCargoが使われます。
 
 すでに `Cargo.lock` に記録されたバージョンは保持されるため、導入時に既存の lock
 file が自動で downgrade されることはありません。CI では別の lock file をゼロから

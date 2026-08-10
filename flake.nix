@@ -48,6 +48,30 @@
           rustDevEnvironmentPackage = rustDevEnvironment.config.devInfra.rust.devEnvironment.package;
           rustDevEnvironmentShell = rustDevEnvironment.config.devInfra.rust.devEnvironment.devShell;
           cargoPackage = rustDevEnvironment.config.devInfra.rust.devEnvironment.cargoPackage;
+          crossPackage = rustDevEnvironment.config.devInfra.rust.devEnvironment.crossPackage;
+          crossCheckRustc = pkgs.writeShellScript "rustc" ''
+            case "$*" in
+              "--print sysroot")
+                echo "$RUSTUP_HOME/toolchains/dev-infra-check"
+                ;;
+              *)
+                exec ${nixpkgs.lib.getExe pkgs.rustc} "$@"
+                ;;
+            esac
+          '';
+          crossCheckToolchain = pkgs.runCommand "cross-check-toolchain" { } ''
+            mkdir -p "$out/bin" "$out/lib"
+            cp ${crossCheckRustc} "$out/bin/rustc"
+          '';
+          crossCheckManifest = pkgs.writeText "Cargo.toml" ''
+            [package]
+            name = "cross-wrapper-check"
+            version = "0.0.0"
+            edition = "2024"
+
+            [lib]
+            path = "lib.rs"
+          '';
           cargoCheckManifest = pkgs.writeText "Cargo.toml" ''
             [package]
             name = "cargo-min-publish-age-check"
@@ -96,6 +120,36 @@
         in
         {
           rust-dev-environment = rustDevEnvironmentShell;
+
+          rust-cross-toolchain =
+            pkgs.runCommand "rust-cross-toolchain-check"
+              {
+                nativeBuildInputs = [
+                  cargoPackage
+                  crossPackage
+                ];
+              }
+              ''
+                export RUSTUP_HOME="$TMPDIR/rustup-home"
+                export RUSTUP_TOOLCHAIN="dev-infra-check"
+                export CROSS_CUSTOM_TOOLCHAIN=1
+                export RUSTUP_DIST_SERVER="http://127.0.0.1:9"
+
+                ${nixpkgs.lib.getExe pkgs.rustup} \
+                  toolchain link dev-infra-check ${crossCheckToolchain}
+                ${nixpkgs.lib.getExe pkgs.rustup} toolchain list \
+                  | grep -Fx "dev-infra-check (active)"
+
+                mkdir "$TMPDIR/project"
+                cp ${crossCheckManifest} "$TMPDIR/project/Cargo.toml"
+                touch "$TMPDIR/project/lib.rs"
+                cd "$TMPDIR/project"
+
+                cross --version > "$TMPDIR/cross-version"
+                grep -Fx "cross 0.2.5" "$TMPDIR/cross-version"
+
+                touch "$out"
+              '';
 
           rust-envrc = pkgs.runCommand "rust-envrc-check" { nativeBuildInputs = [ pkgs.shellcheck ]; } ''
             shellcheck ${./rust/.envrc}
