@@ -78,10 +78,17 @@ jobs:
             | grep -F -- "-Z min-publish-age"
           "$RUST_DEV_COMMAND" cargo -Zunstable-options config get unstable.min-publish-age \
             | grep -Fx 'unstable.min-publish-age = true'
-          "$RUST_DEV_COMMAND" cargo -Zunstable-options config get resolver.incompatible-publish-age \
-            | grep -Fx 'resolver.incompatible-publish-age = "deny"'
           "$RUST_DEV_COMMAND" cargo -Zunstable-options config get registry.global-min-publish-age \
             | grep -Fx 'registry.global-min-publish-age = "7 days"'
+          if "$RUST_DEV_COMMAND" cargo -Zunstable-options config get resolver.incompatible-publish-age \
+            > /dev/null 2>&1; then
+            echo "resolver.incompatible-publish-age must use Cargo's default deny policy" >&2
+            exit 1
+          fi
+          if env | grep -F '^CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE='; then
+            echo "CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE must not override the default deny policy" >&2
+            exit 1
+          fi
           if "$RUST_DEV_COMMAND" cargo -Zunstable-options config get registry.min-publish-age \
             > /dev/null 2>&1; then
             echo "registry.min-publish-age must not override the global policy" >&2

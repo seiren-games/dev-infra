@@ -159,6 +159,10 @@ Crossが事前に取得するmetadataにはdev shellの固定Nightly Cargoが使
 Cargoを使いますが、共有VS Code taskは `--locked` を渡します。依存の追加・更新とlock fileの
 生成は、引き続きdev shellの固定Nightly Cargoで明示的に行います。
 
+Windows GNU targetには、現在のRust toolchainと互換性を確認した公式Cross imageを
+immutable digestで固定します。必要な場合は
+`CROSS_TARGET_X86_64_PC_WINDOWS_GNU_IMAGE` で明示的に上書きできます。
+
 ### 依存パッケージの cooldown
 
 共有する `rust/.cargo/config.toml` は、すべての対応 registry に対して公開から
@@ -172,8 +176,9 @@ file が自動で downgrade されることはありません。CI では別の 
 生成して比較するため、既存 lock file 経由の例外を含め、7 日のポリシーを満たさない
 解決は失敗します。CI の Clippy と test では、再現性のため `--locked` も使用します。
 
-`cargo upgrade` と `cargo update --breaking` は現時点でこのポリシーを適用しないため、
-依存更新には使用しません。ポリシー全体を無効にする
+`resolver.incompatible-publish-age` はCargoの既定値 `deny` を使用し、設定ファイルでは
+明示しません。`cargo upgrade` と `cargo update --breaking` は現時点でこのポリシーを
+適用しないため、依存更新には使用しません。ポリシー全体を無効にする
 `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow` も使用しません。registry からの
 `cargo install`、git dependency、path dependency、および publish time を提供しない
 registry は Cargo の min-publish-age の対象外です。

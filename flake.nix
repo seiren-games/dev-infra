@@ -54,6 +54,11 @@
               "--print sysroot")
                 echo "$RUSTUP_HOME/toolchains/dev-infra-check"
                 ;;
+              "--print target-list")
+                printf '%s\n' \
+                  '${pkgs.stdenv.hostPlatform.rust.rustcTarget}' \
+                  'x86_64-pc-windows-gnu'
+                ;;
               *)
                 exec ${nixpkgs.lib.getExe pkgs.rustc} "$@"
                 ;;
@@ -63,6 +68,36 @@
             mkdir -p "$out/bin" "$out/lib"
             cp ${crossCheckRustc} "$out/bin/rustc"
           '';
+          crossCheckCargo = pkgs.writeShellApplication {
+            name = "cargo";
+            text = ''
+              if [[ "''${1:-}" == "metadata" ]]; then
+                printf '{"workspace_root":"%s","target_directory":"%s","packages":[],"workspace_members":[]}\n' \
+                  "$PWD" "$PWD/target"
+                exit 0
+              fi
+
+              touch "$CROSS_CHECK_CARGO_FALLBACK"
+              exit 73
+            '';
+          };
+          crossCheckDocker = pkgs.writeShellApplication {
+            name = "docker";
+            text = ''
+              if [[ "$#" == 1 && "$1" == "--help" ]]; then
+                echo "Docker"
+                exit 0
+              fi
+
+              if [[ "''${1:-}" == "run" ]]; then
+                printf '%s\n' "$@" > "$CROSS_CHECK_DOCKER_ARGS"
+                exit 0
+              fi
+
+              echo "unexpected docker invocation: $*" >&2
+              exit 64
+            '';
+          };
           crossCheckManifest = pkgs.writeText "Cargo.toml" ''
             [package]
             name = "cross-wrapper-check"
@@ -125,14 +160,20 @@
             pkgs.runCommand "rust-cross-toolchain-check"
               {
                 nativeBuildInputs = [
-                  cargoPackage
+                  crossCheckCargo
+                  crossCheckDocker
                   crossPackage
                 ];
               }
               ''
                 export RUSTUP_HOME="$TMPDIR/rustup-home"
                 export RUSTUP_TOOLCHAIN="dev-infra-check"
+                export HOME="$TMPDIR/home"
+                export CARGO_HOME="$TMPDIR/cargo-home"
+                export XARGO_HOME="$TMPDIR/xargo-home"
                 export CROSS_CUSTOM_TOOLCHAIN=1
+                export CROSS_CHECK_CARGO_FALLBACK="$TMPDIR/cargo-fallback"
+                export CROSS_CHECK_DOCKER_ARGS="$TMPDIR/docker-args"
                 export RUSTUP_DIST_SERVER="http://127.0.0.1:9"
 
                 ${nixpkgs.lib.getExe pkgs.rustup} \
@@ -142,11 +183,16 @@
 
                 mkdir "$TMPDIR/project"
                 cp ${crossCheckManifest} "$TMPDIR/project/Cargo.toml"
+                cp ${./rust/Cross.toml} "$TMPDIR/project/Cross.toml"
                 touch "$TMPDIR/project/lib.rs"
                 cd "$TMPDIR/project"
 
-                cross --version > "$TMPDIR/cross-version"
-                grep -Fx "cross 0.2.5" "$TMPDIR/cross-version"
+                cross build --target x86_64-pc-windows-gnu --locked
+                test ! -e "$CROSS_CHECK_CARGO_FALLBACK"
+                grep -Fx \
+                  'ghcr.io/cross-rs/x86_64-pc-windows-gnu@sha256:c58423353aecebe5e9ebafb97873afc9264dbfa0d8c1875fc3b66282d73f5eda' \
+                  "$CROSS_CHECK_DOCKER_ARGS"
+                grep -F -- '--locked' "$CROSS_CHECK_DOCKER_ARGS"
 
                 touch "$out"
               '';
@@ -250,12 +296,16 @@
 
                 cd ${./rust}
                 cargo -Zunstable-options config get unstable.min-publish-age > "$TMPDIR/min-publish-age"
-                cargo -Zunstable-options config get resolver.incompatible-publish-age > "$TMPDIR/incompatible-publish-age"
                 cargo -Zunstable-options config get registry.global-min-publish-age > "$TMPDIR/global-min-publish-age"
 
                 grep -Fx 'unstable.min-publish-age = true' "$TMPDIR/min-publish-age"
-                grep -Fx 'resolver.incompatible-publish-age = "deny"' "$TMPDIR/incompatible-publish-age"
                 grep -Fx 'registry.global-min-publish-age = "7 days"' "$TMPDIR/global-min-publish-age"
+
+                if cargo -Zunstable-options config get resolver.incompatible-publish-age \
+                  > /dev/null 2>&1; then
+                  echo "resolver.incompatible-publish-age must use Cargo's default deny policy" >&2
+                  exit 1
+                fi
 
                 if cargo -Zunstable-options config get registry.min-publish-age > /dev/null 2>&1; then
                   echo "registry.min-publish-age must not override the global policy" >&2
