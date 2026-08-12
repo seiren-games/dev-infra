@@ -105,6 +105,12 @@
               ''
                 cargo-audit --version \
                   | grep -Fx 'cargo-audit ${pkgs.cargo-audit.version}'
+                test "$(readlink -f "$(command -v rustc)")" \
+                  = "$(readlink -f ${pkgs.rustc}/bin/rustc)"
+                test "$(readlink -f "$(command -v cargo-clippy)")" \
+                  = "$(readlink -f ${pkgs.clippy}/bin/cargo-clippy)"
+                test "$(readlink -f "$(command -v cargo-fmt)")" \
+                  = "$(readlink -f ${pkgs.rustfmt}/bin/cargo-fmt)"
                 tombi --version \
                   | grep -F 'tombi ${pkgs.tombi.version} '
                 touch "$out"
@@ -197,7 +203,6 @@
                 nativeBuildInputs = [
                   rustDevEnvironmentPackage
                   pkgs.git
-                  pkgs.rustc
                 ];
               }
               ''

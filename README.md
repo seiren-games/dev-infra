@@ -5,7 +5,7 @@
 
 Rust 開発ツールは Nix 経由でパッケージ化されています。依存解決には
 `min-publish-age` を利用できる固定 revision の nightly Cargo を使い、Rust compiler、
-Clippy、rustfmt は各プロジェクトが選択した toolchain をそのまま使います。
+Clippy、rustfmt を含むその他のツールは各プロジェクトの固定 nixpkgs から取得します。
 
 ### 共有ファイルの同期
 
@@ -64,7 +64,8 @@ in
 }
 ```
 
-共有環境には nightly Cargo、`cargo-audit`、`cargo-cross`、`tombi` が標準で含まれます。
+共有環境には nightly Cargo、Rust compiler、Clippy、rustfmt、`cargo-audit`、
+`cargo-cross`、`tombi` が標準で含まれます。
 `devInfra.rust.devEnvironment.packages` は、module 評価時に追加ツールを指定するための
 一覧です。標準ツールはこの一覧を override しても dev shell から除外されません。
 
