@@ -64,9 +64,9 @@ in
 }
 ```
 
-ツール一覧は `devInfra.rust.devEnvironment.packages` を module 評価時に override して
-カスタマイズできます。依存ポリシーを強制する nightly Cargo は、この一覧を
-override しても dev shell から除外されません。
+共有環境には nightly Cargo、`cargo-audit`、`cargo-cross`、`tombi` が標準で含まれます。
+`devInfra.rust.devEnvironment.packages` は、module 評価時に追加ツールを指定するための
+一覧です。標準ツールはこの一覧を override しても dev shell から除外されません。
 
 Cargo を使うときはリポジトリの dev shell を使用します。`nix profile install` は
 使用しないため、dev shell の解除後もホスト環境の Cargo は変更されません。

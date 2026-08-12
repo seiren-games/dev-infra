@@ -45,26 +45,16 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install CLI utilities
-        # Do not use tombi-toml/setup-tombi here: it downloads and executes install.sh.
-        # Keep using taiki-e/install-action with fallback disabled and pinned hashes.
-        uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2.75.23
-        with:
-          tool: cargo-audit@0.22.1,tombi@0.9.23
-          fallback: none
-
       - name: Select Nix development environment
         run: |
-          DEV_INFRA_REV="$(nix eval --impure --raw --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes."dev-infra".locked.rev')"
           RUST_DEV_COMMAND="$RUNNER_TEMP/run-in-rust-dev-shell"
           cat > "$RUST_DEV_COMMAND" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
 
-          exec nix develop --no-update-lock-file "$RUST_DEV_SHELL" --command "$@"
+          exec nix develop --no-update-lock-file .#default --command "$@"
           EOF
           chmod 0700 "$RUST_DEV_COMMAND"
-          echo "RUST_DEV_SHELL=github:seiren-games/dev-infra/$DEV_INFRA_REV#rust-dev-environment" >> "$GITHUB_ENV"
           echo "RUST_DEV_COMMAND=$RUST_DEV_COMMAND" >> "$GITHUB_ENV"
 
       - name: Verify Cargo dependency cooldown
@@ -109,13 +99,13 @@ jobs:
         run: '"$RUST_DEV_COMMAND" cargo audit --deny warnings'
 
       - name: Tombi format check
-        run: tombi format --check
+        run: '"$RUST_DEV_COMMAND" tombi format --check'
 
       - name: Rustfmt check
         run: '"$RUST_DEV_COMMAND" cargo fmt --all -- --check'
 
       - name: Tombi lint
-        run: tombi lint .
+        run: '"$RUST_DEV_COMMAND" tombi lint .'
 
       - name: Clippy lint
         run: '"$RUST_DEV_COMMAND" cargo clippy --locked --workspace --all-targets --all-features -- -D warnings'

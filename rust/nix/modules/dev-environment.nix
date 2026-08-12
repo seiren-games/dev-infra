@@ -10,6 +10,12 @@
 let
   cfg = config.devInfra.rust.devEnvironment;
 
+  sharedPackages = with pkgs; [
+    cargo-audit
+    cargo-cross
+    tombi
+  ];
+
   # Keep these values in sync with the official dated Rust nightly channel manifest.
   # `commit` is Cargo's commit reported by `cargo --version --verbose`.
   nightlyCargoRelease = {
@@ -84,9 +90,7 @@ in
   options.devInfra.rust.devEnvironment = {
     packages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      default = with pkgs; [
-        cargo-cross
-      ];
+      default = [ ];
       description = ''
         Additional tool packages exposed by the shared Rust development environment.
       '';
@@ -122,7 +126,7 @@ in
 
     package = pkgs.buildEnv {
       name = "dev-infra-rust-dev-environment";
-      paths = [ (lib.hiPrio cfg.cargoPackage) ] ++ cfg.packages;
+      paths = [ (lib.hiPrio cfg.cargoPackage) ] ++ sharedPackages ++ cfg.packages;
     };
 
     devShell = pkgs.mkShell {

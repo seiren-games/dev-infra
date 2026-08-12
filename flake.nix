@@ -97,6 +97,19 @@
         {
           rust-dev-environment = rustDevEnvironmentShell;
 
+          rust-cli-tools =
+            pkgs.runCommand "rust-cli-tools-check"
+              {
+                nativeBuildInputs = [ rustDevEnvironmentPackage ];
+              }
+              ''
+                cargo-audit --version \
+                  | grep -Fx 'cargo-audit ${pkgs.cargo-audit.version}'
+                tombi --version \
+                  | grep -F 'tombi ${pkgs.tombi.version} '
+                touch "$out"
+              '';
+
           rust-envrc = pkgs.runCommand "rust-envrc-check" { nativeBuildInputs = [ pkgs.shellcheck ]; } ''
             shellcheck ${./rust/.envrc}
             touch "$out"
