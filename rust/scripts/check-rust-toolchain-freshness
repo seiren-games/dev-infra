@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+
+set -euo pipefail
+
+readonly release_grace_days=30
+readonly release_manifests_url="https://static.rust-lang.org/manifests.txt"
+
+manifest_list=""
+current_date=""
+rustc_version=""
+
+usage() {
+  cat <<'EOF'
+Usage: check-rust-toolchain-freshness [OPTIONS]
+
+Verify that stable rustc is not older than the newest stable Rust release whose
+30-day adoption grace period has elapsed.
+
+Options used by deterministic tests:
+  --manifest-list PATH  Read Rust's manifests.txt from PATH instead of the network
+  --current-date DATE   Use DATE (YYYY-MM-DD, UTC) instead of the current UTC date
+  --rustc-version VER   Use VER instead of invoking rustc --version
+  -h, --help            Show this help
+EOF
+}
+
+fail() {
+  echo "stable Rust toolchain freshness check failed: $*" >&2
+  exit 1
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --manifest-list)
+      (( $# >= 2 )) || fail "--manifest-list requires a path"
+      manifest_list="$2"
+      shift 2
+      ;;
+    --current-date)
+      (( $# >= 2 )) || fail "--current-date requires a date"
+      current_date="$2"
+      shift 2
+      ;;
+    --rustc-version)
+      (( $# >= 2 )) || fail "--rustc-version requires a version"
+      rustc_version="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $1"
+      ;;
+  esac
+done
+
+temporary_directory=""
+cleanup() {
+  if [[ -n "$temporary_directory" ]]; then
+    rm -rf -- "$temporary_directory"
+  fi
+}
+trap cleanup EXIT
+
+if [[ -z "$manifest_list" ]]; then
+  temporary_directory="$(mktemp -d)"
+  manifest_list="$temporary_directory/manifests.txt"
+  curl \
+    --fail \
+    --location \
+    --max-filesize 10485760 \
+    --max-time 30 \
+    --proto '=https' \
+    --retry 2 \
+    --show-error \
+    --silent \
+    --tlsv1.2 \
+    --output "$manifest_list" \
+    "$release_manifests_url"
+fi
+
+[[ -f "$manifest_list" ]] || fail "manifest list is not a regular file: $manifest_list"
+
+if [[ -z "$current_date" ]]; then
+  current_date="$(date --utc +%F)"
+fi
+if [[ ! "$current_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+  || [[ "$(date --utc --date="$current_date" +%F 2>/dev/null || true)" != "$current_date" ]]; then
+  fail "current date must be a valid YYYY-MM-DD date: $current_date"
+fi
+
+current_epoch="$(date --utc --date="$current_date" +%s)"
+cutoff_epoch=$((current_epoch - release_grace_days * 24 * 60 * 60))
+cutoff_date="$(date --utc --date="@$cutoff_epoch" +%F)"
+
+if [[ -z "$rustc_version" ]]; then
+  rustc_output="$(rustc --version)"
+  if [[ "$rustc_output" =~ ^rustc\ ([0-9]+\.[0-9]+\.[0-9]+)(\ |$) ]]; then
+    rustc_version="${BASH_REMATCH[1]}"
+  else
+    fail "rustc must be a stable release; got: $rustc_output"
+  fi
+fi
+[[ "$rustc_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+  || fail "rustc version must be stable semver: $rustc_version"
+
+version_is_older() {
+  local candidate="$1"
+  local required="$2"
+  local candidate_major candidate_minor candidate_patch
+  local required_major required_minor required_patch
+
+  IFS=. read -r candidate_major candidate_minor candidate_patch <<< "$candidate"
+  IFS=. read -r required_major required_minor required_patch <<< "$required"
+
+  (( 10#$candidate_major < 10#$required_major )) && return 0
+  (( 10#$candidate_major > 10#$required_major )) && return 1
+  (( 10#$candidate_minor < 10#$required_minor )) && return 0
+  (( 10#$candidate_minor > 10#$required_minor )) && return 1
+  (( 10#$candidate_patch < 10#$required_patch ))
+}
+
+required_version=""
+required_release_date=""
+latest_version=""
+latest_release_date=""
+while IFS= read -r manifest_path; do
+  if [[ "$manifest_path" =~ ^static\.rust-lang\.org/dist/([0-9]{4}-[0-9]{2}-[0-9]{2})/channel-rust-([0-9]+\.[0-9]+\.[0-9]+)\.toml$ ]]; then
+    release_date="${BASH_REMATCH[1]}"
+    release_version="${BASH_REMATCH[2]}"
+
+    if [[ -z "$latest_version" ]] || version_is_older "$latest_version" "$release_version"; then
+      latest_version="$release_version"
+      latest_release_date="$release_date"
+    fi
+
+    if [[ "$release_date" > "$cutoff_date" ]]; then
+      continue
+    fi
+    if [[ -z "$required_version" ]] || version_is_older "$required_version" "$release_version"; then
+      required_version="$release_version"
+      required_release_date="$release_date"
+    fi
+  fi
+done < "$manifest_list"
+
+[[ -n "$latest_version" ]] || fail "manifest list contains no stable Rust releases"
+[[ -n "$required_version" ]] \
+  || fail "manifest list contains no stable Rust release published by $cutoff_date"
+
+if version_is_older "$rustc_version" "$required_version"; then
+  cat >&2 <<EOF
+stable Rust toolchain freshness check failed:
+  installed rustc: $rustc_version
+  required rustc:  $required_version or newer
+  required release date: $required_release_date
+  30-day grace cutoff:   $cutoff_date
+  latest stable release: $latest_version ($latest_release_date)
+
+Update the pinned nixpkgs input after reviewing the incoming changes.
+EOF
+  exit 1
+fi
+
+cat <<EOF
+Stable Rust toolchain freshness check passed:
+  installed rustc: $rustc_version
+  required rustc:  $required_version or newer ($required_release_date)
+  latest stable:   $latest_version ($latest_release_date)
+  grace period:    $release_grace_days days
+EOF

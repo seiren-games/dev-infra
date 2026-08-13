@@ -167,6 +167,25 @@ file が自動で downgrade されることはありません。CI では別の 
 `cargo install`、git dependency、path dependency、および publish time を提供しない
 registry は Cargo の min-publish-age の対象外です。
 
+### stable Rust ツールチェーンの鮮度
+
+共有 dev shell は、Cargo だけを publish-age policy のために固定した Nightly とし、
+`rustc`、Clippy、rustfmt は consumer が固定する nixpkgs の stable Rust を使います。
+共有 CI は Rust 公式の `https://static.rust-lang.org/manifests.txt` を参照し、公開から
+30 日以上経過した stable Rust release のうち最新版を最低要件として検証します。
+新しい stable release には 30 日の追随猶予がありますが、猶予が終わっても
+consumer の `rustc` が古い場合は CI を失敗させます。
+
+手元で同じ検証を行うには consumer の dev shell で次を実行します。
+
+```sh
+check-rust-toolchain-freshness
+```
+
+失敗した場合は、供給元の変更内容を確認したうえで consumer の nixpkgs input と
+`flake.lock` を手動で更新します。この検証は入力を自動更新しません。Rust 公式の
+release metadata を取得または解析できない場合も、鮮度を確認できないため失敗します。
+
 ## シークレットスキャン
 
 このリポジトリは Git hook を提供し、gitleaks がシークレット、個人情報の

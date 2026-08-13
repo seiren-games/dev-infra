@@ -118,8 +118,63 @@
 
           rust-envrc = pkgs.runCommand "rust-envrc-check" { nativeBuildInputs = [ pkgs.shellcheck ]; } ''
             shellcheck ${./rust/.envrc}
+            shellcheck ${./rust/scripts/check-rust-toolchain-freshness}
             touch "$out"
           '';
+
+          rust-toolchain-freshness =
+            pkgs.runCommand "rust-toolchain-freshness-check"
+              {
+                nativeBuildInputs = [ rustDevEnvironmentPackage ];
+              }
+              ''
+                cat > manifests.txt <<'EOF'
+                static.rust-lang.org/dist/2026-05-28/channel-rust-1.96.0.toml
+                static.rust-lang.org/dist/2026-06-30/channel-rust-1.96.1.toml
+                static.rust-lang.org/dist/2026-07-09/channel-rust-1.97.0.toml
+                static.rust-lang.org/dist/2026-07-16/channel-rust-1.97.1.toml
+                static.rust-lang.org/dist/2026-08-20/channel-rust-1.98.0.toml
+                EOF
+
+                check_freshness() {
+                  check-rust-toolchain-freshness \
+                    --manifest-list manifests.txt \
+                    --current-date "$1" \
+                    --rustc-version "$2"
+                }
+
+                # The 30-day boundary is inclusive: 1.97.0 becomes required on August 8.
+                check_freshness 2026-08-07 1.96.1
+                if check_freshness 2026-08-08 1.96.1; then
+                  echo "rustc 1.96.1 must be rejected after the 1.97.0 grace period" >&2
+                  exit 1
+                fi
+                check_freshness 2026-08-08 1.97.0
+
+                # A new release must not reset the requirement for older releases.
+                if check_freshness 2026-08-21 1.96.1; then
+                  echo "a fresh 1.98.0 release must not make rustc 1.96.1 acceptable" >&2
+                  exit 1
+                fi
+                check_freshness 2026-08-21 1.97.1
+
+                # Patch releases become mandatory independently after their own grace period.
+                if check_freshness 2026-08-15 1.97.0; then
+                  echo "rustc 1.97.0 must be rejected after the 1.97.1 grace period" >&2
+                  exit 1
+                fi
+                check_freshness 2026-08-15 1.97.1
+
+                if check-rust-toolchain-freshness \
+                  --manifest-list manifests.txt \
+                  --current-date invalid \
+                  --rustc-version 1.97.1; then
+                  echo "an invalid current date must be rejected" >&2
+                  exit 1
+                fi
+
+                touch "$out"
+              '';
 
           rust-vscode-cargo =
             pkgs.runCommand "rust-vscode-cargo-check"

@@ -10,6 +10,15 @@
 let
   cfg = config.devInfra.rust.devEnvironment;
 
+  rustToolchainFreshnessCheck = pkgs.writeShellApplication {
+    name = "check-rust-toolchain-freshness";
+    runtimeInputs = with pkgs; [
+      coreutils
+      curl
+    ];
+    text = builtins.readFile ../../scripts/check-rust-toolchain-freshness;
+  };
+
   sharedPackages = with pkgs; [
     cargo-audit
     cargo-cross
@@ -17,6 +26,7 @@ let
     rustc
     rustfmt
     tombi
+    rustToolchainFreshnessCheck
   ];
 
   # Keep these values in sync with the official dated Rust nightly channel manifest.

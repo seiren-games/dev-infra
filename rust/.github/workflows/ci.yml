@@ -80,6 +80,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify stable Rust toolchain freshness
+        run: '"$RUST_DEV_COMMAND" check-rust-toolchain-freshness'
+
       - name: Cargo lockfile check
         run: |
           CARGO_LOCK_CHECK_DIR="$RUNNER_TEMP/cargo-lock-check"
