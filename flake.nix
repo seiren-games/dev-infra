@@ -323,14 +323,17 @@
               '';
         }
         // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-          rust-shared-files-sync =
-            pkgs.runCommand "rust-shared-files-sync-check"
+          rust-python-tests =
+            pkgs.runCommand "rust-python-tests"
               {
                 nativeBuildInputs = [ pkgs.python3 ];
+                DEV_INFRA_TEST_ROOT = ./.;
+                DEV_INFRA_TEST_BASH = "${pkgs.bash}/bin/bash";
+                DEV_INFRA_TEST_CARGO = "${pkgs.cargo}/bin/cargo";
+                DEV_INFRA_TEST_POLICY_CARGO = "${cargoPackage}/bin/cargo";
               }
               ''
-                DEV_INFRA_TEST_ROOT=${./.} \
-                  python3 -B -m unittest discover -s ${./tests} -p 'test_*.py' -v
+                python3 -B -m unittest discover -s ${./tests} -p 'test_*.py' -v
                 touch "$out"
               '';
         }

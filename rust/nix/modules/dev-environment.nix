@@ -22,6 +22,7 @@ let
   sharedPackages = with pkgs; [
     cargo-audit
     cargo-cross
+    python3
     clippy
     rustc
     rustfmt

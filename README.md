@@ -65,7 +65,7 @@ in
 ```
 
 共有環境には nightly Cargo、Rust compiler、Clippy、rustfmt、`cargo-audit`、
-`cargo-cross`、`tombi` が標準で含まれます。
+`cargo-cross`、`tombi`、Python 3 が標準で含まれます。
 `devInfra.rust.devEnvironment.packages` は、module 評価時に追加ツールを指定するための
 一覧です。標準ツールはこの一覧を override しても dev shell から除外されません。
 
@@ -117,6 +117,44 @@ consumer 用の共有原本として扱います。
 ```sh
 nix develop --no-update-lock-file .#rust-dev-environment
 ```
+
+### Codex 起動時の cooldown 診断
+
+共有する `rust/.codex/config.toml` と `rust/scripts/codex-cargo-cooldown.py` は、
+各 Rust リポジトリの `.codex/config.toml` と `scripts/codex-cargo-cooldown.py` へ
+同期します。ユーザー全体の Codex 設定は変更せず、共有先の `SessionStart` で
+診断します。スクリプト用の Python 3 も共有 dev shell に含まれます。
+
+フックは Bash ログインシェルを起動し、セッションの作業ディレクトリに戻ってから
+実際の Cargo で cooldown の動作を確認します。Cargo のバージョンや nightly/stable の
+区別を条件にはしません。プロジェクトにまだ `Cargo.toml` がなくても、共有フックが
+配置されているセッションでは診断します。
+
+一時ディレクトリのローカルレジストリに十分古い版と公開直後の版を用意し、
+`cargo generate-lockfile --offline` が古い版を選ぶことを確認します。検証用ファイルは
+終了時に削除します。プロジェクトの manifest/lockfile は変更せず、外部通信・ビルド・
+cooldown の有効化フラグ追加や設定の上書きも行いません。
+
+失敗時は `systemMessage` で通知し、`continue: false` と理由を返します。これは
+起動時の診断であり、その後のコマンドを継続的に拒否する仕組みではありません。
+フックの無効化・未承認・タイムアウト時の強制力も保証しません。設定を確認してから
+Codex の通常のプロジェクト／フックの信頼確認を行ってください。
+
+診断対象は、crates.io の新しい依存解決で公開直後の版が除外されることです。
+具体的な日数、別名のレジストリ、既存の lockfile、公開日時のないパッケージまでは
+保証しません。期間の正本は既存の `.cargo/config.toml` に置きます。
+
+管理元の検証は以下で実行できます。実際の Cargo に対して、有効な設定での成功と、
+設定なし・期間ゼロ・allow・環境変数による無効化での失敗も検証します。
+
+```sh
+nix build --no-link --no-update-lock-file path:.#checks.x86_64-linux.rust-python-tests
+```
+
+`rust-python-tests` は `tests/test_*.py` を `unittest discover` で自動検出し、
+同期処理と cooldown 診断のテストをまとめて実行します。テストファイルを追加する際に
+個別の呼び出しを登録する必要はありません。必要なリポジトリ・Bash・Cargo のパスは
+Nix が `DEV_INFRA_TEST_*` 環境変数で明示的に渡します。
 
 ### VS Code の Cargo 固定
 

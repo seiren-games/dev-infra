@@ -631,6 +631,24 @@ class SourceArchiveTests(unittest.TestCase):
         )
         self.assertTrue(files[PurePosixPath("bin/tool")].version.executable)
 
+    def test_cooldown_hook_and_script_are_shared_together(self) -> None:
+        rust_root = Path(sync_module.__file__).parent
+        paths = (".codex/config.toml", "scripts/codex-cargo-cooldown.py")
+        archive = self.make_archive({
+            f"rust/{path}": ((rust_root / path).read_bytes(), 0o644)
+            for path in paths
+        })
+        files = sync_module.read_source_files(archive)
+        self.assertEqual(set(files), {PurePosixPath(path) for path in paths})
+        with tempfile.TemporaryDirectory() as directory:
+            project_root = Path(directory)
+            self.assertEqual(sync_module.sync(project_root, files), 0)
+            for path in paths:
+                self.assertEqual(
+                    (project_root / path).read_bytes(),
+                    (rust_root / path).read_bytes(),
+                )
+
     def test_notice_after_first_five_lines_does_not_mark_a_file(self) -> None:
         content = b"\n".join([b"line"] * 5 + [sync_module.MANAGED_NOTICE])
         archive = self.make_archive({"rust/not-shared.txt": (content, 0o644)})

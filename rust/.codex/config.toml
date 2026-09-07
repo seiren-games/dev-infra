@@ -1,0 +1,8 @@
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+
+[[hooks.SessionStart]]
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/scripts/codex-cargo-cooldown.py"'
+timeout = 30
