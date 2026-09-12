@@ -17,4 +17,10 @@ python3 sync.py
 
 利用側で変更したファイルが競合すると、そのファイルは上書きされません。表示された内容を確認・調整してから再実行してください。
 
+clone ごとに一度だけ、リポジトリ直下で Git hook を有効化してください。コミット・プッシュ時のチェックに必要です。
+
+```sh
+git config --local core.hooksPath .githooks
+```
+
 ライセンス: [MIT](LICENSE)
