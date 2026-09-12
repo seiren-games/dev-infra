@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/dev-infra-pre-commit.XXXXXX")"
+trap 'rm -rf -- "$temporary_dir"' EXIT
+snapshot="$temporary_dir/source"
+mkdir "$snapshot"
+
+# Export the index supplied by Git, including a temporary GIT_INDEX_FILE used
+# by partial commits. Read raw blobs so attributes and checkout filters cannot
+# change the contents being checked. Keep the NUL-delimited paths intact.
+git ls-files --stage -z > "$temporary_dir/index"
+while IFS= read -r -d '' entry; do
+  metadata="${entry%%$'\t'*}"
+  path="${entry#*$'\t'}"
+  read -r mode object stage <<< "$metadata"
+
+  if [[ "$stage" != 0 ]]; then
+    echo "check-staged: resolve index conflicts before checking" >&2
+    exit 1
+  fi
+
+  destination="$snapshot/$path"
+  mkdir -p -- "${destination%/*}"
+  case "$mode" in
+    100644|100755)
+      git cat-file blob "$object" > "$destination"
+      chmod "${mode#100}" "$destination"
+      ;;
+    120000)
+      # The sentinel prevents command substitution from stripping newlines
+      # that are part of a symlink target.
+      link_target="$(git cat-file blob "$object" && printf '.')"
+      ln -s -- "${link_target%.}" "$destination"
+      ;;
+    *)
+      echo "check-staged: unsupported index mode $mode: $path" >&2
+      exit 1
+      ;;
+  esac
+done < "$temporary_dir/index"
+
+if [[ ! -f "$snapshot/flake.nix" || ! -f "$snapshot/flake.lock" ]]; then
+  echo "check-staged: flake.nix and flake.lock must be present in the index" >&2
+  exit 1
+fi
+
+# Hooks inherit Git's repository/index environment. The exported source must
+# stand alone so Nix and its checks cannot accidentally use the original repo.
+git_environment="$(git rev-parse --local-env-vars)"
+while IFS= read -r variable; do
+  unset "$variable"
+done <<< "$git_environment"
+
+cd "$snapshot"
+echo "check-staged: checking TOML formatting" >&2
+# Run outside the Nix build sandbox so Tombi can fetch its schema catalog.
+nix develop --no-update-lock-file "path:$snapshot" --command tombi format --check
+
+echo "check-staged: checking staged contents with Nix" >&2
+nix flake check --no-update-lock-file --print-build-logs "path:$snapshot"

@@ -250,9 +250,16 @@ clone ごとに一度だけ、version 管理された hook を有効化してく
 git config core.hooksPath .githooks
 ```
 
-以降は、`git commit` が staged changes をスキャンし、`git push` が outgoing
-commits をスキャンします。commit 時のスキャンを手動で実行するには、次の
-コマンドを使います。
+以降は、`git commit` が staged changes の検証とシークレットスキャンを実行し、
+失敗すると commit を中止します。`git push` は outgoing commits をスキャンします。
+
+ステージ内容の検証を手動で実行するには、次のコマンドを使います。
+
+```sh
+scripts/check-staged
+```
+
+commit 時のシークレットスキャンを手動で実行するには、次のコマンドを使います。
 
 ```sh
 scripts/secret-scan pre-commit

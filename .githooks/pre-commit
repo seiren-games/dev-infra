@@ -2,4 +2,7 @@
 # このファイルは https://github.com/seiren-games/dev-infra で管理されています。様々なリポジトリで共有することが目的のファイルです。
 set -euo pipefail
 
-exec "$(git rev-parse --show-toplevel)/scripts/secret-scan" pre-commit
+repo_root="$(git rev-parse --show-toplevel)"
+
+"$repo_root/scripts/secret-scan" pre-commit
+exec "$repo_root/scripts/check-staged"

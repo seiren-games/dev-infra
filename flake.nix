@@ -95,6 +95,13 @@
           '';
         in
         {
+          git-hooks = pkgs.runCommand "git-hooks-check" { nativeBuildInputs = [ pkgs.shellcheck ]; } ''
+            shellcheck ${./.githooks/pre-commit} ${./scripts/check-staged}
+            test -x ${./.githooks/pre-commit}
+            test -x ${./scripts/check-staged}
+            touch "$out"
+          '';
+
           rust-dev-environment = rustDevEnvironmentShell;
 
           rust-cli-tools =
@@ -326,9 +333,13 @@
           rust-python-tests =
             pkgs.runCommand "rust-python-tests"
               {
-                nativeBuildInputs = [ pkgs.python3 ];
+                nativeBuildInputs = [
+                  pkgs.python3
+                  pkgs.git
+                ];
                 DEV_INFRA_TEST_ROOT = ./.;
                 DEV_INFRA_TEST_BASH = "${pkgs.bash}/bin/bash";
+                DEV_INFRA_TEST_TOMBI = "${pkgs.tombi}/bin/tombi";
                 DEV_INFRA_TEST_CARGO = "${pkgs.cargo}/bin/cargo";
                 DEV_INFRA_TEST_POLICY_CARGO = "${cargoPackage}/bin/cargo";
               }
@@ -346,6 +357,7 @@
             packages = [
               pkgs.git
               pkgs.gitleaks
+              pkgs.tombi
             ];
           };
 
