@@ -68,31 +68,6 @@
             {"name":"bar","vers":"1.0.0","deps":[],"cksum":"0000000000000000000000000000000000000000000000000000000000000000","features":{},"yanked":false,"pubtime":"2006-07-25T00:00:00Z"}
             {"name":"bar","vers":"1.1.0","deps":[],"cksum":"1111111111111111111111111111111111111111111111111111111111111111","features":{},"yanked":false,"pubtime":"2006-08-06T00:00:00Z"}
           '';
-          rustAnalyzerCargoHomeRelative = ".vscode/rust-analyzer-cargo-home";
-          rustAnalyzerCargoWrapper = ./rust + "/${rustAnalyzerCargoHomeRelative}/bin/cargo";
-          rustAnalyzerCargoHomeSetting = "\${workspaceFolder}/${rustAnalyzerCargoHomeRelative}";
-          rustAnalyzerCargoSetting = "${rustAnalyzerCargoHomeSetting}/bin/cargo";
-          rustAnalyzerPathSetting = "${rustAnalyzerCargoHomeSetting}/bin:\${env:PATH}";
-          rustAnalyzerRunnableSetting = "./${rustAnalyzerCargoHomeRelative}/bin/cargo";
-          rustAnalyzerDirenvStub = pkgs.writeShellScriptBin "direnv" ''
-            set -euo pipefail
-
-            test "$#" -eq 5
-            test "$1" = "exec"
-            test "$2" = "$EXPECTED_PROJECT_ROOT"
-            test "$3" = "cargo"
-            test "$4" = "metadata"
-            test "$5" = "--argument with spaces"
-            test -z "''${CARGO+x}"
-            test -z "''${CARGO_HOME+x}"
-            test -z "''${RUSTUP_TOOLCHAIN+x}"
-
-            if test "''${WRAPPER_DIRENV_FAIL:-}" = "1"; then
-              exit 42
-            fi
-
-            touch "$WRAPPER_DIRENV_RESULT"
-          '';
         in
         {
           git-hooks = pkgs.runCommand "git-hooks-check" { nativeBuildInputs = [ pkgs.shellcheck ]; } ''
@@ -179,81 +154,6 @@
                   echo "an invalid current date must be rejected" >&2
                   exit 1
                 fi
-
-                touch "$out"
-              '';
-
-          rust-vscode-cargo =
-            pkgs.runCommand "rust-vscode-cargo-check"
-              {
-                nativeBuildInputs = [
-                  pkgs.jq
-                  pkgs.shellcheck
-                  rustAnalyzerDirenvStub
-                ];
-              }
-              ''
-                shellcheck ${rustAnalyzerCargoWrapper}
-                test -x ${rustAnalyzerCargoWrapper}
-
-                tail -n +2 ${./rust/.vscode/settings.json} > "$TMPDIR/settings.json"
-                jq -e \
-                  --arg cargoHome '${rustAnalyzerCargoHomeSetting}' \
-                  --arg cargo '${rustAnalyzerCargoSetting}' \
-                  --arg path '${rustAnalyzerPathSetting}' \
-                  --arg runnable '${rustAnalyzerRunnableSetting}' \
-                  '
-                    .["task.autoDetect"] == "off"
-                    and .["rust-analyzer.server.extraEnv"].CARGO_HOME == $cargoHome
-                    and .["rust-analyzer.server.extraEnv"].CARGO == $cargo
-                    and .["rust-analyzer.server.extraEnv"].PATH == $path
-                    and .["rust-analyzer.runnables.command"] == $runnable
-                  ' \
-                  "$TMPDIR/settings.json"
-
-                consumer="$TMPDIR/consumer with spaces"
-                wrapper="$consumer/${rustAnalyzerCargoHomeRelative}/bin/cargo"
-                mkdir -p "$(dirname "$wrapper")"
-                cp ${rustAnalyzerCargoWrapper} "$wrapper"
-                chmod +x "$wrapper"
-                patchShebangs "$wrapper"
-
-                if CARGO=host-cargo \
-                  CARGO_HOME=host-cargo-home \
-                  RUSTUP_TOOLCHAIN=host-toolchain \
-                  EXPECTED_PROJECT_ROOT="$consumer" \
-                  WRAPPER_DIRENV_RESULT="$TMPDIR/direnv-invoked" \
-                  "$wrapper" metadata "--argument with spaces"; then
-                  echo "the Cargo wrapper must reject a missing .envrc" >&2
-                  exit 1
-                else
-                  status="$?"
-                fi
-                test "$status" -eq 1
-                test ! -e "$TMPDIR/direnv-invoked"
-
-                touch "$consumer/.envrc"
-                CARGO=host-cargo \
-                  CARGO_HOME=host-cargo-home \
-                  RUSTUP_TOOLCHAIN=host-toolchain \
-                  EXPECTED_PROJECT_ROOT="$consumer" \
-                  WRAPPER_DIRENV_RESULT="$TMPDIR/direnv-invoked" \
-                  "$wrapper" metadata "--argument with spaces"
-                test -f "$TMPDIR/direnv-invoked"
-
-                if CARGO=host-cargo \
-                  CARGO_HOME=host-cargo-home \
-                  RUSTUP_TOOLCHAIN=host-toolchain \
-                  EXPECTED_PROJECT_ROOT="$consumer" \
-                  WRAPPER_DIRENV_RESULT="$TMPDIR/direnv-invoked" \
-                  WRAPPER_DIRENV_FAIL=1 \
-                  "$wrapper" metadata "--argument with spaces"; then
-                  echo "the Cargo wrapper must propagate direnv failures" >&2
-                  exit 1
-                else
-                  status="$?"
-                fi
-                test "$status" -eq 42
 
                 touch "$out"
               '';

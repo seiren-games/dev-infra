@@ -5,9 +5,7 @@
 		{
 			"type": "shell",
 			"command": "nix develop --no-update-lock-file --command cargo test",
-			"problemMatcher": [
-				"$rustc"
-			],
+			"problemMatcher": [],
 			"group": {
 				"kind": "build"
 			},
@@ -15,17 +13,15 @@
 		},
 		{
 			"type": "shell",
-			"command": "nix develop --no-update-lock-file --command cross build --target x86_64-pc-windows-gnu --release --locked",
-			"problemMatcher": [
-				"$rustc"
-			],
-			"label": "rust: cross build x86_64-pc-windows-gnu --release"
+			"command": "nix develop --no-update-lock-file --command cargo-build-windows --release --locked",
+			"problemMatcher": [],
+			"label": "rust: cargo build x86_64-pc-windows-gnu --release"
 		},
 		{
-			"label": "rust: test + cross build",
+			"label": "rust: test + Windows build",
 			"dependsOn": [
 				"rust: cargo test",
-				"rust: cross build x86_64-pc-windows-gnu --release"
+				"rust: cargo build x86_64-pc-windows-gnu --release"
 			],
 			"dependsOrder": "sequence",
 			"group": {
